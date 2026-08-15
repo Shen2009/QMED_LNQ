@@ -146,10 +146,65 @@ const FaceRppgScreen = ({navigation}: any) => {
         style={styles.camera}
         mirror={Platform.OS !== 'web'}>
         <View style={styles.cameraOverlay}>
-          <View style={[styles.faceGuide, {borderColor: theme.colors.primary}]} />
-          <View style={[styles.scanLine, {backgroundColor: theme.colors.primary}]} />
+          <View style={styles.rppgGuideWrap}>
+            <View style={[styles.faceGuide, {borderColor: theme.colors.primary}]} />
+            <View
+              style={[
+                styles.roiZone,
+                styles.foreheadZone,
+                {
+                  backgroundColor: theme.colors.primary + '26',
+                  borderColor: theme.colors.primary,
+                },
+              ]}>
+              <Text style={styles.roiLabel}>Trán</Text>
+            </View>
+            <View
+              style={[
+                styles.roiZone,
+                styles.leftNoseZone,
+                {
+                  backgroundColor: theme.colors.secondary + '2A',
+                  borderColor: theme.colors.secondary,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.roiZone,
+                styles.rightNoseZone,
+                {
+                  backgroundColor: theme.colors.secondary + '2A',
+                  borderColor: theme.colors.secondary,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.roiZone,
+                styles.leftCheekZone,
+                {
+                  backgroundColor: theme.colors.accent + '26',
+                  borderColor: theme.colors.accent,
+                },
+              ]}>
+              <Text style={styles.roiLabel}>Má</Text>
+            </View>
+            <View
+              style={[
+                styles.roiZone,
+                styles.rightCheekZone,
+                {
+                  backgroundColor: theme.colors.accent + '26',
+                  borderColor: theme.colors.accent,
+                },
+              ]}>
+              <Text style={styles.roiLabel}>Má</Text>
+            </View>
+            <View style={[styles.scanLine, {backgroundColor: theme.colors.primary}]} />
+          </View>
           <Text style={styles.overlayText}>
-            Giữ khuôn mặt trong khung
+            Đặt trán, hai má và hai bên sống mũi trong vùng quét
           </Text>
         </View>
       </CameraView>
@@ -283,16 +338,67 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.16)',
   },
+  rppgGuideWrap: {
+    width: 286,
+    height: 350,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   faceGuide: {
-    width: 220,
-    height: 280,
-    borderRadius: 110,
+    width: 276,
+    height: 340,
+    borderRadius: 138,
     borderWidth: 3,
     borderStyle: 'dashed',
   },
+  roiZone: {
+    position: 'absolute',
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  foreheadZone: {
+    top: 48,
+    width: 116,
+    height: 48,
+    borderRadius: 22,
+  },
+  leftNoseZone: {
+    top: 128,
+    left: 114,
+    width: 28,
+    height: 78,
+    borderRadius: 14,
+  },
+  rightNoseZone: {
+    top: 128,
+    right: 114,
+    width: 28,
+    height: 78,
+    borderRadius: 14,
+  },
+  leftCheekZone: {
+    top: 174,
+    left: 42,
+    width: 74,
+    height: 58,
+    borderRadius: 26,
+  },
+  rightCheekZone: {
+    top: 174,
+    right: 42,
+    width: 74,
+    height: 58,
+    borderRadius: 26,
+  },
+  roiLabel: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
   scanLine: {
     position: 'absolute',
-    width: 190,
+    width: 230,
     height: 2,
     borderRadius: 1,
     opacity: 0.85,
@@ -300,9 +406,11 @@ const styles = StyleSheet.create({
   overlayText: {
     position: 'absolute',
     bottom: 24,
+    paddingHorizontal: 24,
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+    textAlign: 'center',
   },
   cameraFallback: {
     flex: 1,
