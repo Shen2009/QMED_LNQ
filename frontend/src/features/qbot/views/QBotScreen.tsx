@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
@@ -30,30 +31,56 @@ const initialMessages: ChatMessage[] = [
   },
 ];
 
-const buildLocalReply = async (message: string) => {
-  const lower = message.toLowerCase();
+const QUICK_PROMPTS = [
+  'Lịch sử đo gần nhất',
+  'Giải thích Face rPPG',
+  'Stress là gì?',
+  'Huyết áp đọc thế nào?',
+  'Gợi ý demo app',
+];
+
+const formatLatestHistory = async () => {
   const history = await localHistory.latest(3);
 
+  if (!history.length) {
+    return 'Hiện chưa có lịch sử đo nào. Anh hãy vào tab Đo, chạy một flow demo rồi quay lại History.';
+  }
+
+  const rows = history
+    .map((item, index) => {
+      const value = `${item.primaryValue} ${item.primaryUnit || ''}`.trim();
+      return `${index + 1}. ${item.type}: ${value} (${item.status})`;
+    })
+    .join('\n');
+
+  return `Đây là 3 kết quả gần nhất trong AsyncStorage:\n${rows}`;
+};
+
+const buildLocalReply = async (message: string) => {
+  const lower = message.toLowerCase();
+
   if (lower.includes('history') || lower.includes('lịch sử')) {
-    return history.length
-      ? `Hiện đang có ${history.length} kết quả gần nhất trong AsyncStorage. Kết quả mới nhất là ${history[0].type}: ${history[0].primaryValue} ${history[0].primaryUnit || ''}.`
-      : 'Hiện chưa có lịch sử đo nào. Anh hãy vào tab Đo, chạy một flow demo rồi quay lại History.';
+    return formatLatestHistory();
   }
 
   if (lower.includes('stress')) {
-    return 'Stress screen hiện là frontend demo: có hướng dẫn, timer và kết quả mẫu. Sau này có thể thay phần kết quả bằng dữ liệu thật.';
+    return 'Stress screen mô phỏng quy trình đo căng thẳng: hướng dẫn người dùng ngồi yên, chạy timer, gọi backend phân tích demo, rồi lưu kết quả vào AsyncStorage.';
   }
 
-  if (lower.includes('huyết áp') || lower.includes('blood')) {
-    return 'Blood Pressure screen hiện mô phỏng chỉ số SYS/DIA, timer và lưu kết quả local sau khi đo xong.';
+  if (lower.includes('huyết áp') || lower.includes('blood') || lower.includes('pressure')) {
+    return 'Blood Pressure screen hiển thị SYS/DIA/Pulse. Đây là giao diện frontend để trình bày flow sản phẩm, chưa phải thiết bị chẩn đoán y tế.';
   }
 
-  if (lower.includes('tim') || lower.includes('heartbeat')) {
-    return 'Heartbeat screen có UI microphone, waveform giả lập và result screen. Đây là nền để thêm ghi âm thật sau.';
+  if (lower.includes('tim') || lower.includes('heartbeat') || lower.includes('heart')) {
+    return 'Heartbeat screen có UI microphone, waveform giả lập, timer và result screen. Sau này có thể nối thêm quyền microphone và model âm thanh tim.';
   }
 
   if (lower.includes('rppg') || lower.includes('camera')) {
-    return 'Face rPPG screen hiện có quyền camera, khung nhận diện mặt, timer đo và chuyển sang result screen.';
+    return 'Face rPPG dùng camera trước để quan sát thay đổi màu rất nhỏ trên da mặt, từ đó ước tính nhịp tim/HRV. Trong app hiện có camera UI, timer, gọi backend demo và màn kết quả.';
+  }
+
+  if (lower.includes('demo') || lower.includes('thuyết trình') || lower.includes('trình bày')) {
+    return 'Khi demo, anh nên đi theo thứ tự: Home -> Measure -> chọn Face rPPG/Stress/Blood Pressure/Heartbeat -> Result -> History -> hỏi Q-Bot về kết quả vừa đo.';
   }
 
   return 'Bản Q-Bot này chạy hoàn toàn trên frontend. Anh có thể hỏi về History, Stress, Blood Pressure, Heartbeat hoặc Face rPPG.';
@@ -68,20 +95,22 @@ const QBotScreen = () => {
 
   const canSend = useMemo(() => input.trim().length > 0 && !thinking, [input, thinking]);
 
-  const send = async () => {
-    const text = input.trim();
-    if (!text || thinking) return;
+  const sendText = async (text: string) => {
+    if (thinking) return;
+
+    const cleanText = text.trim();
+    if (!cleanText) return;
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      text,
+      text: cleanText,
     };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setThinking(true);
 
-    const reply = await buildLocalReply(text);
+    const reply = await buildLocalReply(cleanText);
     setTimeout(() => {
       setMessages(prev => [
         ...prev,
@@ -111,6 +140,33 @@ const QBotScreen = () => {
               Frontend local assistant
             </Text>
           </View>
+        </View>
+
+        <View style={[styles.promptBand, {borderBottomColor: theme.colors.border}]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.promptContent}>
+            {QUICK_PROMPTS.map(prompt => (
+              <TouchableOpacity
+                key={prompt}
+                accessibilityRole="button"
+                disabled={thinking}
+                onPress={() => sendText(prompt)}
+                style={[
+                  styles.promptChip,
+                  {
+                    backgroundColor: theme.colors.cardLight,
+                    borderColor: theme.colors.border,
+                    opacity: thinking ? 0.55 : 1,
+                  },
+                ]}>
+                <Text style={[styles.promptText, {color: theme.colors.textSecondary}]}>
+                  {prompt}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
         <ScrollView
@@ -172,14 +228,14 @@ const QBotScreen = () => {
                 borderColor: theme.colors.border,
               },
             ]}
-            onSubmitEditing={send}
+            onSubmitEditing={() => sendText(input)}
           />
           <Button
             title="Gửi"
             icon="send"
             disabled={!canSend}
             loading={thinking}
-            onPress={send}
+            onPress={() => sendText(input)}
             style={styles.sendButton}
           />
         </View>
@@ -208,6 +264,21 @@ const styles = StyleSheet.create({
   headerCopy: {flex: 1},
   title: {fontSize: 28, fontWeight: '900'},
   subtitle: {fontSize: 13, marginTop: 2},
+  promptBand: {
+    borderBottomWidth: 1,
+    paddingVertical: 10,
+  },
+  promptContent: {
+    gap: 8,
+    paddingHorizontal: 14,
+  },
+  promptChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  promptText: {fontSize: 12, fontWeight: '800'},
   messages: {flex: 1},
   messagesContent: {
     paddingHorizontal: 16,

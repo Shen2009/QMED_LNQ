@@ -58,8 +58,8 @@ const MeasurementListScreen = ({navigation}: any) => {
           Chọn loại đo
         </Text>
         <Text style={[styles.subtitle, {color: theme.colors.textSecondary}]}>
-          Đây là danh sách các luồng đo của frontend. Hiện tại Face rPPG đã có
-          flow giao diện hoàn chỉnh để anh phát triển tiếp.
+          Đây là danh sách các luồng đo chính của frontend. Mỗi luồng có màn
+          hướng dẫn, timer, trạng thái phân tích và màn kết quả riêng.
         </Text>
       </View>
 
@@ -139,8 +139,8 @@ const MeasurementListScreen = ({navigation}: any) => {
           Ghi chú xây dựng
         </Text>
         <Text style={[styles.noteText, {color: theme.colors.textSecondary}]}>
-          Màn này chỉ chịu trách nhiệm chọn luồng đo. Logic camera, timer và
-          kết quả được tách sang màn riêng để code dễ bảo trì.
+          Màn này chỉ chịu trách nhiệm chọn luồng đo. Logic camera, timer,
+          backend demo, result và local history được tách riêng để code dễ bảo trì.
         </Text>
       </Card>
     </Screen>

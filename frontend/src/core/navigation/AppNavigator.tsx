@@ -27,6 +27,7 @@ import BloodPressureScreen from '../../features/measurement/views/BloodPressureS
 import HeartbeatScreen from '../../features/measurement/views/HeartbeatScreen';
 import MeasurementResultScreen from '../../features/measurement/views/MeasurementResultScreen';
 import QBotScreen from '../../features/qbot/views/QBotScreen';
+import HealthProfileScreen from '../../features/profile/views/HealthProfileScreen';
 import SettingsScreen from '../../features/settings/views/SettingsScreen';
 
 export type RootStackParamList = {
@@ -38,6 +39,7 @@ export type RootStackParamList = {
   BloodPressure: undefined;
   Heartbeat: undefined;
   MeasurementResult: {result?: any};
+  HealthProfile: undefined;
 };
 
 export type MainTabParamList = {
@@ -195,6 +197,7 @@ export default function AppNavigator() {
               name="MeasurementResult"
               component={MeasurementResultScreen}
             />
+            <Stack.Screen name="HealthProfile" component={HealthProfileScreen} />
           </>
         )}
       </Stack.Navigator>

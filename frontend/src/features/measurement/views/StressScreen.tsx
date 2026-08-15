@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 
@@ -12,12 +12,17 @@ import {
 import {useTheme} from '../../../core/theme/ThemeContext';
 
 const DURATION = 10;
+type MeasurePhase = 'idle' | 'measuring' | 'analyzing';
 
 const StressScreen = ({navigation}: any) => {
   const {theme} = useTheme();
-  const [running, setRunning] = useState(false);
+  const [phase, setPhase] = useState<MeasurePhase>('idle');
   const [secondsLeft, setSecondsLeft] = useState(DURATION);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const running = phase === 'measuring';
+  const analyzing = phase === 'analyzing';
+
+  useEffect(() => () => stop(), []);
 
   const stop = () => {
     if (timerRef.current) {
@@ -44,7 +49,7 @@ const StressScreen = ({navigation}: any) => {
 
   const finish = async () => {
     stop();
-    setRunning(false);
+    setPhase('analyzing');
     const startedAt = new Date(Date.now() - DURATION * 1000).toISOString();
 
     let result = fallbackResult();
@@ -65,7 +70,7 @@ const StressScreen = ({navigation}: any) => {
   };
 
   const start = () => {
-    setRunning(true);
+    setPhase('measuring');
     setSecondsLeft(DURATION);
     stop();
     timerRef.current = setInterval(() => {
@@ -108,10 +113,10 @@ const StressScreen = ({navigation}: any) => {
       </Card>
 
       <Button
-        title={running ? 'Đang đo...' : 'Bắt đầu đo Stress'}
-        icon={running ? 'hourglass-empty' : 'play-arrow'}
-        loading={running}
-        disabled={running}
+        title={analyzing ? 'Đang phân tích...' : running ? 'Đang đo...' : 'Bắt đầu đo Stress'}
+        icon={analyzing ? 'cloud-sync' : running ? 'hourglass-empty' : 'play-arrow'}
+        loading={running || analyzing}
+        disabled={running || analyzing}
         onPress={start}
       />
     </Screen>

@@ -1,0 +1,349 @@
+import React, {useEffect, useMemo, useState} from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {MaterialIcons} from '@expo/vector-icons';
+
+import Button from '../../../shared/components/Button';
+import Card from '../../../shared/components/Card';
+import Input from '../../../shared/components/Input';
+import Screen from '../../../shared/components/Screen';
+import {useTheme} from '../../../core/theme/ThemeContext';
+import {
+  ActivityLevel,
+  Gender,
+  healthProfileStorage,
+  HealthProfile,
+} from '../../../core/storage/healthProfile';
+
+const genderOptions: Array<{label: string; value: Gender; icon: keyof typeof MaterialIcons.glyphMap}> = [
+  {label: 'Nam', value: 'male', icon: 'male'},
+  {label: 'Nữ', value: 'female', icon: 'female'},
+  {label: 'Khác', value: 'other', icon: 'person'},
+];
+
+const activityOptions: Array<{label: string; value: ActivityLevel; description: string}> = [
+  {label: 'Ít', value: 'low', description: 'Ít vận động'},
+  {label: 'Vừa', value: 'medium', description: 'Đi lại, học tập bình thường'},
+  {label: 'Cao', value: 'high', description: 'Tập luyện thường xuyên'},
+];
+
+const HealthProfileScreen = ({navigation}: any) => {
+  const {theme} = useTheme();
+  const [profile, setProfile] = useState<HealthProfile | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    healthProfileStorage.get().then(setProfile);
+  }, []);
+
+  const bmi = useMemo(() => {
+    if (!profile) return null;
+    const height = Number(profile.heightCm) / 100;
+    const weight = Number(profile.weightKg);
+    if (!height || !weight) return null;
+    return weight / (height * height);
+  }, [profile]);
+
+  const bmiLabel = useMemo(() => {
+    if (!bmi) return 'Chưa đủ dữ liệu';
+    if (bmi < 18.5) return 'Hơi thấp';
+    if (bmi < 23) return 'Bình thường';
+    if (bmi < 25) return 'Cần theo dõi';
+    return 'Cao';
+  }, [bmi]);
+
+  const updateProfile = <Key extends keyof HealthProfile>(
+    key: Key,
+    value: HealthProfile[Key],
+  ) => {
+    setProfile(current => (current ? {...current, [key]: value} : current));
+  };
+
+  const saveProfile = async () => {
+    if (!profile) return;
+    setSaving(true);
+    await healthProfileStorage.save(profile);
+    setSaving(false);
+    Alert.alert('Đã lưu', 'Hồ sơ sức khỏe đã được lưu cục bộ trên thiết bị.');
+  };
+
+  const resetProfile = () => {
+    Alert.alert('Xoá hồ sơ', 'Anh có chắc muốn xoá hồ sơ sức khỏe local không?', [
+      {text: 'Huỷ', style: 'cancel'},
+      {
+        text: 'Xoá',
+        style: 'destructive',
+        onPress: async () => {
+          await healthProfileStorage.clear();
+          const empty = await healthProfileStorage.get();
+          setProfile(empty);
+        },
+      },
+    ]);
+  };
+
+  if (!profile) {
+    return (
+      <Screen contentStyle={styles.loadingContent}>
+        <Text style={[styles.loadingText, {color: theme.colors.textSecondary}]}>
+          Đang tải hồ sơ...
+        </Text>
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen scroll contentStyle={styles.content}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => navigation.goBack()}
+            style={[styles.backButton, {backgroundColor: theme.colors.cardLight}]}>
+            <MaterialIcons name="arrow-back" size={22} color={theme.colors.text} />
+          </TouchableOpacity>
+          <View style={styles.headerCopy}>
+            <Text style={[styles.eyebrow, {color: theme.colors.primary}]}>
+              Health Profile
+            </Text>
+            <Text style={[styles.title, {color: theme.colors.text}]}>
+              Hồ sơ sức khỏe
+            </Text>
+          </View>
+        </View>
+
+        <Card style={styles.summaryCard}>
+          <View style={[styles.summaryIcon, {backgroundColor: theme.colors.primary + '14'}]}>
+            <MaterialIcons name="badge" size={28} color={theme.colors.primary} />
+          </View>
+          <View style={styles.summaryCopy}>
+            <Text style={[styles.summaryTitle, {color: theme.colors.text}]}>
+              {profile.fullName || 'Người dùng Q-Med'}
+            </Text>
+            <Text style={[styles.summaryText, {color: theme.colors.textSecondary}]}>
+              BMI: {bmi ? bmi.toFixed(1) : '--'} • {bmiLabel}
+            </Text>
+          </View>
+        </Card>
+
+        <Card style={styles.section}>
+          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
+            Thông tin cơ bản
+          </Text>
+          <Input
+            label="Họ và tên"
+            leftIcon="person"
+            value={profile.fullName}
+            onChangeText={value => updateProfile('fullName', value)}
+            placeholder="Nhập tên hiển thị"
+          />
+          <View style={styles.inputGrid}>
+            <Input
+              label="Tuổi"
+              leftIcon="cake"
+              value={profile.age}
+              onChangeText={value => updateProfile('age', value.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              placeholder="16"
+              containerStyle={styles.gridInput}
+            />
+            <Input
+              label="Chiều cao"
+              leftIcon="height"
+              value={profile.heightCm}
+              onChangeText={value => updateProfile('heightCm', value.replace(/[^0-9.]/g, ''))}
+              keyboardType="decimal-pad"
+              placeholder="170"
+              helperText="cm"
+              containerStyle={styles.gridInput}
+            />
+          </View>
+          <Input
+            label="Cân nặng"
+            leftIcon="monitor-weight"
+            value={profile.weightKg}
+            onChangeText={value => updateProfile('weightKg', value.replace(/[^0-9.]/g, ''))}
+            keyboardType="decimal-pad"
+            placeholder="60"
+            helperText="kg"
+          />
+        </Card>
+
+        <Card style={styles.section}>
+          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
+            Giới tính
+          </Text>
+          <View style={styles.optionRow}>
+            {genderOptions.map(option => {
+              const active = profile.gender === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  accessibilityRole="button"
+                  onPress={() => updateProfile('gender', option.value)}
+                  style={[
+                    styles.optionChip,
+                    {
+                      backgroundColor: active ? theme.colors.primary : theme.colors.cardLight,
+                      borderColor: active ? theme.colors.primary : theme.colors.border,
+                    },
+                  ]}>
+                  <MaterialIcons
+                    name={option.icon}
+                    size={18}
+                    color={active ? '#FFFFFF' : theme.colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.optionText,
+                      {color: active ? '#FFFFFF' : theme.colors.textSecondary},
+                    ]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Card>
+
+        <Card style={styles.section}>
+          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
+            Mức vận động
+          </Text>
+          {activityOptions.map(option => {
+            const active = profile.activityLevel === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                accessibilityRole="button"
+                onPress={() => updateProfile('activityLevel', option.value)}
+                style={[
+                  styles.activityRow,
+                  {
+                    backgroundColor: active ? theme.colors.primary + '12' : theme.colors.cardLight,
+                    borderColor: active ? theme.colors.primary : theme.colors.border,
+                  },
+                ]}>
+                <View style={styles.activityCopy}>
+                  <Text style={[styles.activityTitle, {color: theme.colors.text}]}>
+                    {option.label}
+                  </Text>
+                  <Text style={[styles.activityText, {color: theme.colors.textSecondary}]}>
+                    {option.description}
+                  </Text>
+                </View>
+                {active ? (
+                  <MaterialIcons name="check-circle" size={21} color={theme.colors.primary} />
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </Card>
+
+        <Card style={styles.section}>
+          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
+            Ghi chú y tế
+          </Text>
+          <Input
+            label="Tình trạng cần lưu ý"
+            leftIcon="medical-information"
+            value={profile.medicalNotes}
+            onChangeText={value => updateProfile('medicalNotes', value)}
+            placeholder="Ví dụ: dị ứng, tiền sử bệnh, thuốc đang dùng..."
+            multiline
+            style={styles.multilineInput}
+          />
+          <Input
+            label="Liên hệ khẩn cấp"
+            leftIcon="call"
+            value={profile.emergencyContact}
+            onChangeText={value => updateProfile('emergencyContact', value)}
+            placeholder="Tên hoặc số điện thoại người thân"
+          />
+        </Card>
+
+        <View style={styles.actions}>
+          <Button
+            title="Lưu hồ sơ"
+            icon="save"
+            loading={saving}
+            onPress={saveProfile}
+          />
+          <Button
+            title="Xoá hồ sơ local"
+            icon="delete-outline"
+            variant="outline"
+            onPress={resetProfile}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </Screen>
+  );
+};
+
+const styles = StyleSheet.create({
+  content: {gap: 16, paddingBottom: 100},
+  loadingContent: {flex: 1, alignItems: 'center', justifyContent: 'center'},
+  loadingText: {fontSize: 14, fontWeight: '700'},
+  header: {flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16},
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCopy: {flex: 1, minWidth: 0},
+  eyebrow: {fontSize: 13, fontWeight: '800'},
+  title: {fontSize: 30, fontWeight: '900', marginTop: 3},
+  summaryCard: {flexDirection: 'row', alignItems: 'center', gap: 13, marginBottom: 16},
+  summaryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryCopy: {flex: 1, minWidth: 0},
+  summaryTitle: {fontSize: 18, fontWeight: '900'},
+  summaryText: {fontSize: 13, marginTop: 4, fontWeight: '700'},
+  section: {gap: 12, marginBottom: 16},
+  sectionTitle: {fontSize: 17, fontWeight: '900'},
+  inputGrid: {flexDirection: 'row', gap: 12},
+  gridInput: {flex: 1},
+  optionRow: {flexDirection: 'row', gap: 9},
+  optionChip: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  optionText: {fontSize: 13, fontWeight: '800'},
+  activityRow: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activityCopy: {flex: 1, minWidth: 0},
+  activityTitle: {fontSize: 15, fontWeight: '900'},
+  activityText: {fontSize: 12, marginTop: 3},
+  multilineInput: {minHeight: 76, textAlignVertical: 'top'},
+  actions: {gap: 10},
+});
+
+export default HealthProfileScreen;

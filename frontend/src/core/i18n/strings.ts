@@ -52,9 +52,9 @@ const vi: AppStrings = {
   langSelectTitle: 'Chọn ngôn ngữ',
   langSelectSubtitle: 'Bạn muốn sử dụng ứng dụng bằng ngôn ngữ nào?',
   langSelectContinue: 'Tiếp tục',
-  onboardSlide1Title: 'Xây nền tảng frontend',
+  onboardSlide1Title: 'Theo dõi sức khỏe mọi nơi, mọi lúc',
   onboardSlide1Sub:
-    'Bắt đầu bằng app shell, theme, ngôn ngữ và điều hướng rõ ràng.',
+    'Đo nhịp tim, huyết áp, SpO2 và các chỉ số sinh tồn khác ngay trên điện thoại của bạn.',
   onboardSlide2Title: 'Chia chức năng thành module',
   onboardSlide2Sub:
     'Mỗi phần như Home, Measure, History, Q-Bot và Settings có trách nhiệm riêng.',
@@ -86,9 +86,9 @@ const en: AppStrings = {
   langSelectTitle: 'Choose language',
   langSelectSubtitle: 'Which language would you like to use?',
   langSelectContinue: 'Continue',
-  onboardSlide1Title: 'Build the frontend foundation',
+  onboardSlide1Title: 'Track your health anywhere, anytime',
   onboardSlide1Sub:
-    'Start with a clear app shell, theme, language, and navigation setup.',
+    'Measure heart rate, blood pressure, SpO2 and other vital signs right on your phone.',
   onboardSlide2Title: 'Split features into modules',
   onboardSlide2Sub:
     'Home, Measure, History, Q-Bot, and Settings each own one clear responsibility.',

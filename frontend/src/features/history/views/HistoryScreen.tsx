@@ -1,4 +1,4 @@
-import React, {useCallback, useState} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {Alert, RefreshControl, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {MaterialIcons} from '@expo/vector-icons';
@@ -16,6 +16,26 @@ const HistoryScreen = () => {
   const {theme} = useTheme();
   const [records, setRecords] = useState<MeasurementHistoryRecord[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedType, setSelectedType] = useState('All');
+
+  const typeFilters = useMemo(() => {
+    const types = Array.from(new Set(records.map(record => record.type)));
+    return ['All', ...types];
+  }, [records]);
+
+  const filteredRecords = useMemo(
+    () =>
+      selectedType === 'All'
+        ? records
+        : records.filter(record => record.type === selectedType),
+    [records, selectedType],
+  );
+
+  const latestRecord = records[0];
+  const measurementTypes = useMemo(
+    () => Array.from(new Set(records.map(record => record.type))).length,
+    [records],
+  );
 
   const loadHistory = useCallback(async () => {
     const data = await localHistory.list();
@@ -88,6 +108,24 @@ const HistoryScreen = () => {
         <Text style={[styles.summaryText, {color: theme.colors.textSecondary}]}>
           kết quả đang được lưu cục bộ bằng AsyncStorage trên thiết bị này.
         </Text>
+        <View style={styles.statsRow}>
+          <View style={[styles.statBox, {backgroundColor: theme.colors.cardLight}]}>
+            <Text style={[styles.statNumber, {color: theme.colors.text}]}>
+              {measurementTypes}
+            </Text>
+            <Text style={[styles.statLabel, {color: theme.colors.textSecondary}]}>
+              loại đo
+            </Text>
+          </View>
+          <View style={[styles.statBox, {backgroundColor: theme.colors.cardLight}]}>
+            <Text style={[styles.statNumber, {color: theme.colors.text}]}>
+              {latestRecord ? latestRecord.type : '--'}
+            </Text>
+            <Text style={[styles.statLabel, {color: theme.colors.textSecondary}]}>
+              gần nhất
+            </Text>
+          </View>
+        </View>
       </Card>
 
       {!records.length ? (
@@ -101,8 +139,36 @@ const HistoryScreen = () => {
           </Text>
         </Card>
       ) : (
-        <View style={styles.list}>
-          {records.map(record => {
+        <>
+          <View style={styles.filterRow}>
+            {typeFilters.map(type => {
+              const active = selectedType === type;
+              return (
+                <TouchableOpacity
+                  key={type}
+                  accessibilityRole="button"
+                  onPress={() => setSelectedType(type)}
+                  style={[
+                    styles.filterChip,
+                    {
+                      backgroundColor: active ? theme.colors.primary : theme.colors.card,
+                      borderColor: active ? theme.colors.primary : theme.colors.border,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.filterText,
+                      {color: active ? '#FFFFFF' : theme.colors.textSecondary},
+                    ]}>
+                    {type === 'All' ? 'Tất cả' : type}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.list}>
+          {filteredRecords.map(record => {
             const time = new Date(record.measuredAt).toLocaleString('vi-VN', {
               hour: '2-digit',
               minute: '2-digit',
@@ -155,7 +221,8 @@ const HistoryScreen = () => {
               </Card>
             );
           })}
-        </View>
+          </View>
+        </>
       )}
 
       <Button title="Làm mới lịch sử" icon="refresh" variant="outline" onPress={refresh} />
@@ -183,9 +250,30 @@ const styles = StyleSheet.create({
   summaryCard: {gap: 6},
   summaryNumber: {fontSize: 42, fontWeight: '900'},
   summaryText: {fontSize: 14, lineHeight: 20},
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  statBox: {
+    flex: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  statNumber: {fontSize: 16, fontWeight: '900'},
+  statLabel: {fontSize: 12, fontWeight: '700', marginTop: 3},
   emptyCard: {alignItems: 'center', gap: 10, paddingVertical: 28},
   emptyTitle: {fontSize: 18, fontWeight: '900'},
   emptyText: {fontSize: 14, lineHeight: 20, textAlign: 'center'},
+  filterRow: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
+  filterChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  filterText: {fontSize: 12, fontWeight: '800'},
   list: {gap: 12},
   recordCard: {gap: 12},
   recordTop: {flexDirection: 'row', alignItems: 'center', gap: 12},

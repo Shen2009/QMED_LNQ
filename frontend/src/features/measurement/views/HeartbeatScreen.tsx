@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 
@@ -12,12 +12,17 @@ import {
 import {useTheme} from '../../../core/theme/ThemeContext';
 
 const DURATION = 8;
+type MeasurePhase = 'idle' | 'measuring' | 'analyzing';
 
 const HeartbeatScreen = ({navigation}: any) => {
   const {theme} = useTheme();
-  const [running, setRunning] = useState(false);
+  const [phase, setPhase] = useState<MeasurePhase>('idle');
   const [secondsLeft, setSecondsLeft] = useState(DURATION);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const running = phase === 'measuring';
+  const analyzing = phase === 'analyzing';
+
+  useEffect(() => () => stop(), []);
 
   const stop = () => {
     if (timerRef.current) {
@@ -43,7 +48,7 @@ const HeartbeatScreen = ({navigation}: any) => {
 
   const finish = async () => {
     stop();
-    setRunning(false);
+    setPhase('analyzing');
     const startedAt = new Date(Date.now() - DURATION * 1000).toISOString();
 
     let result = fallbackResult();
@@ -64,7 +69,7 @@ const HeartbeatScreen = ({navigation}: any) => {
   };
 
   const start = () => {
-    setRunning(true);
+    setPhase('measuring');
     setSecondsLeft(DURATION);
     stop();
     timerRef.current = setInterval(() => {
@@ -113,7 +118,7 @@ const HeartbeatScreen = ({navigation}: any) => {
           {secondsLeft}s
         </Text>
         <Text style={[styles.status, {color: theme.colors.textSecondary}]}>
-          {running ? 'Đang ghi âm mô phỏng...' : 'Đặt điện thoại gần ngực trái'}
+          {analyzing ? 'Đang phân tích tín hiệu...' : running ? 'Đang ghi âm mô phỏng...' : 'Đặt điện thoại gần ngực trái'}
         </Text>
       </Card>
 
@@ -125,10 +130,10 @@ const HeartbeatScreen = ({navigation}: any) => {
       </Card>
 
       <Button
-        title={running ? 'Đang ghi...' : 'Bắt đầu ghi âm'}
-        icon={running ? 'hourglass-empty' : 'fiber-manual-record'}
-        loading={running}
-        disabled={running}
+        title={analyzing ? 'Đang phân tích...' : running ? 'Đang ghi...' : 'Bắt đầu ghi âm'}
+        icon={analyzing ? 'cloud-sync' : running ? 'hourglass-empty' : 'fiber-manual-record'}
+        loading={running || analyzing}
+        disabled={running || analyzing}
         onPress={start}
       />
     </Screen>
