@@ -35,12 +35,35 @@ def init_db() -> None:
         )
 
 
-def list_measurements() -> list[dict[str, Any]]:
+def list_measurements(
+    measurement_type: str | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    query = "SELECT * FROM measurements"
+    params: list[Any] = []
+
+    if measurement_type:
+        query += " WHERE type = ?"
+        params.append(measurement_type)
+
+    query += " ORDER BY measured_at DESC"
+
+    if limit:
+        query += " LIMIT ?"
+        params.append(limit)
+
     with _connect() as connection:
-        rows = connection.execute(
-            "SELECT * FROM measurements ORDER BY measured_at DESC"
-        ).fetchall()
+        rows = connection.execute(query, params).fetchall()
     return [_row_to_measurement(row) for row in rows]
+
+
+def get_measurement(record_id: str) -> dict[str, Any] | None:
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT * FROM measurements WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+    return _row_to_measurement(row) if row else None
 
 
 def save_measurement(record: dict[str, Any]) -> dict[str, Any]:
@@ -77,6 +100,25 @@ def delete_measurement(record_id: str) -> bool:
 def clear_measurements() -> None:
     with _connect() as connection:
         connection.execute("DELETE FROM measurements")
+
+
+def measurement_summary() -> dict[str, Any]:
+    with _connect() as connection:
+        total = connection.execute("SELECT COUNT(*) AS total FROM measurements").fetchone()[
+            "total"
+        ]
+        by_type_rows = connection.execute(
+            "SELECT type, COUNT(*) AS count FROM measurements GROUP BY type ORDER BY count DESC"
+        ).fetchall()
+        latest = connection.execute(
+            "SELECT * FROM measurements ORDER BY measured_at DESC LIMIT 1"
+        ).fetchone()
+
+    return {
+        "total": total,
+        "byType": {row["type"]: row["count"] for row in by_type_rows},
+        "latest": _row_to_measurement(latest) if latest else None,
+    }
 
 
 def _row_to_measurement(row: sqlite3.Row) -> dict[str, Any]:

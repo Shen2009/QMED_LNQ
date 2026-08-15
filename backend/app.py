@@ -1,47 +1,76 @@
 from __future__ import annotations
 
 import json
-import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
+from config import APP_NAME, APP_VERSION, HOST, MAX_JSON_BYTES, PORT
 from services.ai_engine import analyze_measurement
+from services.qbot_service import build_qbot_reply
 from storage import (
     clear_measurements,
     delete_measurement,
+    get_measurement,
     init_db,
     list_measurements,
+    measurement_summary,
     save_measurement,
 )
-
-
-HOST = "0.0.0.0"
-PORT = 6789
+from validators import ValidationError, normalize_measurement, normalize_positive_int
 
 
 class QMedHandler(BaseHTTPRequestHandler):
-    server_version = "QMedBackend/1.0"
+    server_version = f"QMedBackend/{APP_VERSION}"
 
     def do_OPTIONS(self) -> None:
         self._send_empty(204)
 
     def do_GET(self) -> None:
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
 
         if path == "/health":
-            self._send_json({"ok": True, "service": "q-med-backend"})
+            self._send_json(
+                {
+                    "ok": True,
+                    "service": APP_NAME,
+                    "version": APP_VERSION,
+                    "storage": "sqlite",
+                    "aiEngine": "demo",
+                }
+            )
             return
 
         if path == "/api/measurements":
-            self._send_json({"data": list_measurements()})
+            limit = normalize_positive_int(_first(query, "limit"), default=100, maximum=500)
+            measurement_type = _first(query, "type")
+            self._send_json({"data": list_measurements(measurement_type, limit)})
+            return
+
+        if path == "/api/measurements/summary":
+            self._send_json({"data": measurement_summary()})
+            return
+
+        prefix = "/api/measurements/"
+        if path.startswith(prefix):
+            record_id = unquote(path[len(prefix):])
+            record = get_measurement(record_id)
+            if not record:
+                self._send_json({"error": "Measurement not found"}, status=404)
+                return
+            self._send_json({"data": record})
             return
 
         self._send_json({"error": "Not found"}, status=404)
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
-        body = self._read_json()
+        body, error = self._read_json()
+        if error:
+            self._send_json({"error": error}, status=400)
+            return
 
         if path == "/api/ai/analyze":
             measurement_type = str(body.get("type", ""))
@@ -51,16 +80,21 @@ class QMedHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": str(error)}, status=400)
                 return
 
-            result["id"] = body.get("id") or f"measure-{uuid.uuid4().hex[:12]}"
-            save_measurement(result)
-            self._send_json({"data": result}, status=201)
+            try:
+                record = normalize_measurement({**result, "id": body.get("id")})
+            except ValidationError as error:
+                self._send_json({"error": str(error)}, status=400)
+                return
+
+            save_measurement(record)
+            self._send_json({"data": record}, status=201)
             return
 
         if path == "/api/measurements":
             try:
-                record = _normalize_measurement(body)
-            except KeyError as error:
-                self._send_json({"error": f"Missing field: {error.args[0]}"}, status=400)
+                record = normalize_measurement(body)
+            except ValidationError as error:
+                self._send_json({"error": str(error)}, status=400)
                 return
 
             save_measurement(record)
@@ -69,7 +103,8 @@ class QMedHandler(BaseHTTPRequestHandler):
 
         if path == "/api/qbot/messages":
             message = str(body.get("message", ""))
-            self._send_json({"data": {"reply": build_qbot_reply(message)}})
+            records = list_measurements(limit=20)
+            self._send_json({"data": {"reply": build_qbot_reply(message, records)}})
             return
 
         self._send_json({"error": "Not found"}, status=404)
@@ -91,17 +126,25 @@ class QMedHandler(BaseHTTPRequestHandler):
 
         self._send_json({"error": "Not found"}, status=404)
 
-    def _read_json(self) -> dict[str, Any]:
+    def log_message(self, format: str, *args: Any) -> None:
+        print(f"{self.address_string()} - {self.command} {self.path} - {format % args}")
+
+    def _read_json(self) -> tuple[dict[str, Any], str | None]:
         length = int(self.headers.get("Content-Length", "0"))
         if length == 0:
-            return {}
+            return {}, None
+
+        if length > MAX_JSON_BYTES:
+            return {}, "Request body is too large"
 
         raw = self.rfile.read(length).decode("utf-8")
         try:
             parsed = json.loads(raw)
-            return parsed if isinstance(parsed, dict) else {}
+            if not isinstance(parsed, dict):
+                return {}, "JSON body must be an object"
+            return parsed, None
         except json.JSONDecodeError:
-            return {}
+            return {}, "Invalid JSON body"
 
     def _send_empty(self, status: int) -> None:
         self.send_response(status)
@@ -123,53 +166,15 @@ class QMedHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 
-def _normalize_measurement(body: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "id": str(body.get("id") or f"measure-{uuid.uuid4().hex[:12]}"),
-        "type": body["type"],
-        "status": body["status"],
-        "measuredAt": body["measuredAt"],
-        "duration": body.get("duration"),
-        "primaryLabel": body["primaryLabel"],
-        "primaryValue": body["primaryValue"],
-        "primaryUnit": body.get("primaryUnit"),
-        "note": body.get("note"),
-        "metrics": body.get("metrics", []),
-    }
-
-
-def build_qbot_reply(message: str) -> str:
-    lower = message.lower()
-    records = list_measurements()
-    latest = records[0] if records else None
-
-    if not message.strip():
-        return "Anh hãy nhập câu hỏi để Q-Bot hỗ trợ nhé."
-
-    if "history" in lower or "lich su" in lower or "lịch sử" in lower:
-        if not records:
-            return "Hiện chưa có lịch sử đo trên backend. Anh hãy đo thử một chỉ số trước."
-        return f"Backend đang lưu {len(records)} kết quả. Kết quả mới nhất là {latest['type']} lúc {latest['measuredAt']}."
-
-    if "stress" in lower or "căng thẳng" in lower:
-        return "Stress screen ước tính mức căng thẳng từ tín hiệu sinh học. Khi có model thật, backend sẽ thay phần demo bằng inference."
-
-    if "huyết áp" in lower or "blood" in lower or "pressure" in lower:
-        return "Blood Pressure screen trả về systolic, diastolic và pulse. Kết quả hiện là demo, chưa dùng để chẩn đoán y tế."
-
-    if "tim" in lower or "heart" in lower or "heartbeat" in lower:
-        return "Heartbeat screen theo dõi nhịp tim và độ tin cậy tín hiệu. Anh nên đo ở nơi đủ sáng và giữ yên camera."
-
-    if "rppg" in lower or "camera" in lower:
-        return "Face rPPG dùng camera RGB để đọc thay đổi màu rất nhỏ trên da, từ đó ước tính nhịp tim và HRV."
-
-    return "Q-Bot backend đã nhận câu hỏi. Hiện em có thể hỗ trợ về Face rPPG, Stress, Blood Pressure, Heartbeat và lịch sử đo."
+def _first(query: dict[str, list[str]], key: str) -> str | None:
+    values = query.get(key)
+    return values[0] if values else None
 
 
 def main() -> None:
     init_db()
     server = ThreadingHTTPServer((HOST, PORT), QMedHandler)
-    print(f"Q-Med backend running at http://localhost:{PORT}")
+    print(f"Q-Med backend {APP_VERSION} running at http://localhost:{PORT}")
     server.serve_forever()
 
 
