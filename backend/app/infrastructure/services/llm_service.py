@@ -48,7 +48,13 @@ class MedGemmaService:
                     token=hf_token
                 )
 
-                use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
+                # 4-bit bitsandbytes requires a CUDA-capable runtime. On CPU, use
+                # a regular float32 model instead of failing during quantization.
+                use_cuda = torch.cuda.is_available()
+                use_4bit = (
+                    os.getenv("USE_4BIT", "true").lower() == "true"
+                    and use_cuda
+                )
 
                 if use_4bit:
                     logger.info("Initializing BitsAndBytesConfig for 4-bit quantization (to save VRAM)...")
@@ -66,11 +72,13 @@ class MedGemmaService:
                         token=hf_token
                     )
                 else:
-                    logger.info("Loading %s onto GPU in native FP16 (Max Quality for 16GB VRAM+)...", self.model_id)
+                    dtype = torch.float16 if use_cuda else torch.float32
+                    device_map = "auto" if use_cuda else "cpu"
+                    logger.info("Loading %s with dtype=%s device_map=%s...", self.model_id, dtype, device_map)
                     self.model = AutoModelForImageTextToText.from_pretrained(
                         self.model_id,
-                        torch_dtype=torch.float16,
-                        device_map="auto",
+                        torch_dtype=dtype,
+                        device_map=device_map,
                         token=hf_token
                     )
                 logger.info("%s loaded successfully!", self.model_id)

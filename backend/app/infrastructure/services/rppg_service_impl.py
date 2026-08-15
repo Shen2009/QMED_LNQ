@@ -184,11 +184,19 @@ def _read_video_frames(video_path):
     meta_fps = cap.get(cv2.CAP_PROP_FPS)
     frames = []
     timestamps_ms = []
+    max_width = 640
     while True:
         ts = cap.get(cv2.CAP_PROP_POS_MSEC)
         ret, frame = cap.read()
         if not ret:
             break
+        if frame.shape[1] > max_width:
+            scale = max_width / frame.shape[1]
+            frame = cv2.resize(
+                frame,
+                (max_width, max(1, int(frame.shape[0] * scale))),
+                interpolation=cv2.INTER_AREA,
+            )
         frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         timestamps_ms.append(ts)
     cap.release()

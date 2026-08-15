@@ -6,6 +6,12 @@ import logging
 import logging.config
 import torch
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load backend/.env before importing services that read environment settings.
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware

@@ -19,6 +19,7 @@ import measurementService from '../../../core/api/measurementService';
 import * as ImagePicker from 'expo-image-picker';
 import {useSafeGoBack} from '../../../core/hooks/useSafeGoBack';
 import WebCameraRecorder from '../../../shared/components/WebCameraRecorder';
+import NativeCameraPreview from '../../../shared/components/NativeCameraPreview';
 
 const {width} = Dimensions.get('window');
 const DURATION = 30;
@@ -218,7 +219,11 @@ const BloodPressureScreen = () => {
 
     cancelledRef.current = false;
     const startRecording = async () => {
-      await new Promise(r => setTimeout(r, 500));
+      if (cameraRef.current?.waitUntilReady) {
+        await cameraRef.current.waitUntilReady();
+      } else {
+        await new Promise(r => setTimeout(r, 500));
+      }
       if (!recordingRef.current) {
         try {
           recordingRef.current = true;
@@ -317,7 +322,7 @@ const BloodPressureScreen = () => {
     return (
       <View style={{flex: 1, backgroundColor: '#000'}}>
         <StatusBar barStyle="light-content" />
-        {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={StyleSheet.absoluteFill} /> : <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" mode="video" />}
+        {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={StyleSheet.absoluteFill} /> : <NativeCameraPreview ref={cameraRef} style={StyleSheet.absoluteFill} />}
         <View style={[StyleSheet.absoluteFill, {backgroundColor: 'rgba(0,0,0,0.42)'}]} />
 
         <SafeAreaView style={[StyleSheet.absoluteFill, {alignItems: 'center'}]}>
@@ -367,9 +372,6 @@ const BloodPressureScreen = () => {
   return (
     <SafeAreaView style={[s.root, {backgroundColor: C.bg}]}>
       <StatusBar barStyle="light-content" />
-
-      {/* Camera warm-up (hidden) */}
-      {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={{width: 1, height: 1}} /> : <CameraView ref={cameraRef} style={{width: 0, height: 0}} facing="front" mode="video" />}
 
       {/* Header */}
       <View style={[s.readyHeader, {backgroundColor: C.bg}]}>

@@ -18,6 +18,7 @@ import {useLanguage} from '../../../core/i18n/LanguageContext';
 import historyService from '../../../core/api/historyService';
 import measurementService from '../../../core/api/measurementService';
 import WebCameraRecorder from '../../../shared/components/WebCameraRecorder';
+import NativeCameraPreview from '../../../shared/components/NativeCameraPreview';
 
 const {width} = Dimensions.get('window');
 
@@ -172,7 +173,7 @@ const FaceCameraView = React.forwardRef<any, any>((props, ref) => {
   return (
     <View style={{width: FRAME_W, height: FRAME_H, borderRadius: 20, overflow: 'hidden', position: 'relative'}}>
       {/* Real camera */}
-      {Platform.OS === 'web' ? <WebCameraRecorder ref={ref} style={StyleSheet.absoluteFill} /> : <CameraView ref={ref} style={StyleSheet.absoluteFill} facing="front" mode="video" videoQuality="1080p" />}
+      {Platform.OS === 'web' ? <WebCameraRecorder ref={ref} style={StyleSheet.absoluteFill} /> : <NativeCameraPreview ref={ref} style={StyleSheet.absoluteFill} />}
       {/* Semi-dark overlay outside oval */}
       <View style={[StyleSheet.absoluteFill, {backgroundColor: '#00000055'}]} />
       {/* Oval cutout border */}
@@ -240,7 +241,7 @@ const HealthExamScreen = () => {
   const step = STEPS[stepIdx];
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<any>(null);
   const isRecordingRef = useRef(false);
   const zAxisDataRef = useRef<number[]>([]);
   const scgSubscriptionRef = useRef<any>(null);
@@ -251,6 +252,7 @@ const HealthExamScreen = () => {
       if (STEPS[stepIdx].id === 'face') {
         setTimeout(async () => {
           if (!isRecordingRef.current && cameraRef.current) {
+            await cameraRef.current.waitUntilReady?.();
             isRecordingRef.current = true;
             try {
               const video = await cameraRef.current.recordAsync({ maxDuration: 32 });
@@ -286,6 +288,7 @@ const HealthExamScreen = () => {
       } else if (STEPS[stepIdx].id === 'voice') {
         setTimeout(async () => {
           if (!isRecordingRef.current && cameraRef.current) {
+            await cameraRef.current.waitUntilReady?.();
             isRecordingRef.current = true;
             try {
               const video = await cameraRef.current.recordAsync({ maxDuration: 32 });
