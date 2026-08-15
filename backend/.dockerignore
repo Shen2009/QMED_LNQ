@@ -1,0 +1,54 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environment (NEVER include in image)
+venv/
+.venv/
+env/
+ENV/
+
+# Secrets & environment (NEVER bake into image)
+.env
+.env.*
+!.env.example
+
+# Development & test files
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+tests/
+test_*.py
+*_test.py
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker files themselves
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# OS
+.DS_Store
+Thumbs.db

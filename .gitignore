@@ -22,3 +22,8 @@ playwright-report/
 __pycache__/
 *.pyc
 backend/qmed.sqlite3
+backend/**/*.sqlite3
+backend/**/*.db
+backend/**/__pycache__/
+backend/.venv/
+backend/ml_models/emb_cache/
