@@ -2,16 +2,13 @@ import React from 'react';
 import {Provider} from 'react-redux';
 import {PersistGate} from 'redux-persist/integration/react';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {ActivityIndicator, StyleSheet, View} from 'react-native';
-
 import {store, persistor} from './src/core/store/store';
 import {ThemeProvider} from './src/core/theme/ThemeContext';
-import {LanguageProvider} from './src/core/i18n/LanguageContext';
 import AppNavigator from './src/core/navigation/AppNavigator';
+import {StyleSheet, ActivityIndicator, View} from 'react-native';
+import {LanguageProvider} from './src/core/i18n/LanguageContext';
 
 export default function App() {
-  // App shell note:
-  // Provider order is intentionally simple: storage -> language -> theme -> routes.
   return (
     <GestureHandlerRootView style={styles.container}>
       <Provider store={store}>
@@ -27,6 +24,7 @@ export default function App() {
   );
 }
 
+// Simple loading spinner that doesn't depend on theme
 const SimpleLoadingSpinner = () => (
   <View style={styles.loading}>
     <ActivityIndicator size="large" color="#007AFF" />

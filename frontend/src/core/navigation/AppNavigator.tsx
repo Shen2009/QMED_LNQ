@@ -1,251 +1,136 @@
-import React, {useEffect, useState} from 'react';
+import React from 'react';
 import {NavigationContainer} from '@react-navigation/native';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createStackNavigator} from '@react-navigation/stack';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {MaterialIcons} from '@expo/vector-icons';
-import {
-  Platform,
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import {useSelector} from 'react-redux';
-
-import {useLanguage} from '../i18n/LanguageContext';
-import {RootState} from '../store/store';
-import {
-  healthProfileStorage,
-  isHealthProfileComplete,
-} from '../storage/healthProfile';
+import {Platform, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator} from 'react-native';
 import {useTheme} from '../theme/ThemeContext';
+import {useLanguage} from '../i18n/LanguageContext';
+import healthProfileService from '../api/healthProfileService';
 
-import LanguageSelectScreen from '../../features/onboarding/views/LanguageSelectScreen';
-import OnboardingScreen from '../../features/onboarding/views/OnboardingScreen';
 import HomeScreen from '../../features/home/views/HomeScreen';
 import HistoryScreen from '../../features/history/views/HistoryScreen';
+import ChatScreen from '../../features/chatbot/views/ChatScreen';
+import ProfileScreen from '../../features/profile/views/ProfileScreen';
+import SettingsScreen from '../../features/settings/views/SettingsScreen';
 import MeasurementListScreen from '../../features/measurement/views/MeasurementListScreen';
+import MeasurementDetailScreen from '../../features/measurement/views/MeasurementDetailScreen';
+import MeasurementResultScreen from '../../features/measurement/views/MeasurementResultScreen';
+import HealthExamScreen from '../../features/measurement/views/HealthExamScreen';
+import MedGemmaReportScreen from '../../features/measurement/views/MedGemmaReportScreen';
 import FaceRppgScreen from '../../features/measurement/views/FaceRppgScreen';
 import StressScreen from '../../features/measurement/views/StressScreen';
-import BloodPressureScreen from '../../features/measurement/views/BloodPressureScreen';
 import HeartbeatScreen from '../../features/measurement/views/HeartbeatScreen';
-import MeasurementResultScreen from '../../features/measurement/views/MeasurementResultScreen';
-import QBotScreen from '../../features/qbot/views/QBotScreen';
-import HealthProfileScreen from '../../features/profile/views/HealthProfileScreen';
-import SettingsScreen from '../../features/settings/views/SettingsScreen';
+import BloodPressureScreen from '../../features/measurement/views/BloodPressureScreen';
+import PersonalInfoScreen from '../../features/profile/views/PersonalInfoScreen';
+import NotificationsScreen from '../../features/profile/views/NotificationsScreen';
+import SecurityScreen from '../../features/profile/views/SecurityScreen';
+import HelpScreen from '../../features/profile/views/HelpScreen';
+import ProfileSetupScreen from '../../features/profile/views/ProfileSetupScreen';
 
 export type RootStackParamList = {
-  LanguageSelect: undefined;
-  Onboarding: undefined;
-  HealthProfileLoading: undefined;
+  ProfileSetup: {editMode?: boolean} | undefined;
   Main: undefined;
+  MeasurementList: undefined;
+  MeasurementDetail: {type: string};
+  MeasurementResult: {result: any; type: string};
+  HealthExam: undefined;
+  MedGemmaReport: {record: any};
   FaceRppg: undefined;
   Stress: undefined;
-  BloodPressure: undefined;
   Heartbeat: undefined;
-  MeasurementResult: {result?: any};
-  HealthProfile: {requiredSetup?: boolean} | undefined;
+  BloodPressure: undefined;
+  PersonalInfo: undefined;
+  Notifications: undefined;
+  Security: undefined;
+  Help: undefined;
 };
 
 export type MainTabParamList = {
   Home: undefined;
   History: undefined;
-  Measure: undefined;
   QBot: undefined;
+  Profile: undefined;
   Settings: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-const TAB_META: Record<
-  keyof MainTabParamList,
-  {icon: keyof typeof MaterialIcons.glyphMap; fallback: string}
-> = {
-  Home: {icon: 'home', fallback: 'Trang chủ'},
-  History: {icon: 'history', fallback: 'Lịch sử'},
-  Measure: {icon: 'monitor-heart', fallback: 'Đo'},
-  QBot: {icon: 'smart-toy', fallback: 'Q-Bot'},
-  Settings: {icon: 'settings', fallback: 'Cài đặt'},
-};
-
-const getTabLabel = (
-  routeName: keyof MainTabParamList,
-  strings: ReturnType<typeof useLanguage>['strings'],
-) => {
-  const labels: Record<keyof MainTabParamList, string> = {
-    Home: strings.navHome || TAB_META.Home.fallback,
-    History: strings.navHistory || TAB_META.History.fallback,
-    Measure: strings.measurementListTitle || TAB_META.Measure.fallback,
-    QBot: strings.navChat || TAB_META.QBot.fallback,
-    Settings: strings.navSettings || TAB_META.Settings.fallback,
-  };
-  return labels[routeName];
-};
-
-function CustomTabBar({state, navigation}: any) {
+function MainTabs() {
   const {theme} = useTheme();
   const {strings} = useLanguage();
+  const tabs: Array<{name: keyof MainTabParamList; icon: keyof typeof MaterialIcons.glyphMap; label: string}> = [
+    {name: 'Home', icon: 'home', label: strings.navHome || 'Trang chủ'},
+    {name: 'History', icon: 'history', label: strings.navHistory || 'Lịch sử'},
+    {name: 'QBot', icon: 'smart-toy', label: strings.navChat || 'Q-Bot'},
+    {name: 'Profile', icon: 'person', label: strings.navProfile || 'Hồ sơ'},
+    {name: 'Settings', icon: 'settings', label: strings.navSettings || 'Cài đặt'},
+  ];
 
-  return (
-    <View
-      style={[
-        styles.tabBar,
-        {
-          backgroundColor: theme.colors.navBg,
-          borderTopColor: theme.colors.border,
-        },
-      ]}>
-      {state.routes.map((route: any, index: number) => {
-        const routeName = route.name as keyof MainTabParamList;
-        const focused = state.index === index;
-        const meta = TAB_META[routeName];
-        const label = getTabLabel(routeName, strings);
-        const isCenter = routeName === 'Measure';
-        const color = focused ? theme.colors.primary : theme.colors.textMuted;
-
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (!focused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
-
-        if (isCenter) {
-          return (
-            <TouchableOpacity
-              key={route.key}
-              activeOpacity={0.85}
-              onPress={onPress}
-              style={styles.centerTab}>
-              <View
-                style={[
-                  styles.centerButton,
-                  {
-                    backgroundColor: theme.colors.primary,
-                    shadowColor: theme.colors.primary,
-                  },
-                ]}>
-                <MaterialIcons name={meta.icon} size={28} color="#FFFFFF" />
-              </View>
-              <Text style={[styles.centerLabel, {color}]} numberOfLines={1}>
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        }
-
-        return (
-          <TouchableOpacity
-            key={route.key}
-            activeOpacity={0.75}
-            onPress={onPress}
-            style={styles.tabItem}>
-            <MaterialIcons name={meta.icon} size={24} color={color} />
-            <Text
-              style={[
-                styles.tabLabel,
-                {color, fontWeight: focused ? '700' : '500'},
-              ]}
-              numberOfLines={1}>
-              {label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
-function MainTabs() {
   return (
     <Tab.Navigator
-      initialRouteName="Home"
-      tabBar={props => <CustomTabBar {...props} />}
+      tabBar={({state, navigation}) => (
+        <View style={[styles.tabBar, {backgroundColor: theme.colors.navBg, borderTopColor: theme.colors.border}]}>
+          {state.routes.map((route, index) => {
+            const tab = tabs.find(item => item.name === route.name) || tabs[0];
+            const focused = state.index === index;
+            return (
+              <TouchableOpacity
+                key={route.key}
+                style={styles.tabItem}
+                onPress={() => navigation.navigate(route.name as never)}
+                accessibilityRole="button">
+                <MaterialIcons name={tab.icon} size={24} color={focused ? theme.colors.primary : theme.colors.textMuted} />
+                <Text style={[styles.tabLabel, {color: focused ? theme.colors.primary : theme.colors.textMuted}]} numberOfLines={1}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
       screenOptions={{headerShown: false}}>
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="History" component={HistoryScreen} />
-      <Tab.Screen name="Measure" component={MeasurementListScreen} />
-      <Tab.Screen name="QBot" component={QBotScreen} />
+      <Tab.Screen name="QBot" component={ChatScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
 
 export default function AppNavigator() {
-  const {theme} = useTheme();
-  const [profileReady, setProfileReady] = useState<boolean | null>(null);
-  const onboardingDone = useSelector(
-    (state: RootState) => state.app.onboardingDone,
-  );
-  const languageSelectDone = useSelector(
-    (state: RootState) => state.app.languageSelectDone,
-  );
+  const [profileReady, setProfileReady] = React.useState<boolean | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const loadProfileStatus = async () => {
-      if (!languageSelectDone || !onboardingDone) {
-        if (mounted) setProfileReady(null);
-        return;
-      }
-
-      const profile = await healthProfileStorage.get();
-      if (mounted) {
-        setProfileReady(isHealthProfileComplete(profile));
-      }
-    };
-
-    loadProfileStatus();
-
-    return () => {
-      mounted = false;
-    };
-  }, [languageSelectDone, onboardingDone]);
+  React.useEffect(() => {
+    healthProfileService.checkExists().then(setProfileReady).catch(() => setProfileReady(false));
+  }, []);
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{headerShown: false}}>
-        {!languageSelectDone ? (
-          <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} />
-        ) : !onboardingDone ? (
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        ) : profileReady === null ? (
-          <Stack.Screen name="HealthProfileLoading">
-            {() => (
-              <View style={[styles.loadingScreen, {backgroundColor: theme.colors.background}]}>
-                <ActivityIndicator color={theme.colors.primary} />
-              </View>
-            )}
+        {profileReady === null ? (
+          <Stack.Screen name="ProfileSetup">
+            {() => <View style={styles.loading}><ActivityIndicator color="#00D4B8" /></View>}
           </Stack.Screen>
         ) : !profileReady ? (
-          <Stack.Screen name="HealthProfile">
-            {props => (
-              <HealthProfileScreen
-                {...props}
-                requiredSetup
-                onCompleted={() => setProfileReady(true)}
-              />
-            )}
-          </Stack.Screen>
+          <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
         ) : (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+            <Stack.Screen name="MeasurementList" component={MeasurementListScreen} />
+            <Stack.Screen name="MeasurementDetail" component={MeasurementDetailScreen} />
+            <Stack.Screen name="MeasurementResult" component={MeasurementResultScreen} />
+            <Stack.Screen name="HealthExam" component={HealthExamScreen} />
+            <Stack.Screen name="MedGemmaReport" component={MedGemmaReportScreen} />
             <Stack.Screen name="FaceRppg" component={FaceRppgScreen} />
             <Stack.Screen name="Stress" component={StressScreen} />
-            <Stack.Screen name="BloodPressure" component={BloodPressureScreen} />
             <Stack.Screen name="Heartbeat" component={HeartbeatScreen} />
-            <Stack.Screen
-              name="MeasurementResult"
-              component={MeasurementResultScreen}
-            />
-            <Stack.Screen name="HealthProfile" component={HealthProfileScreen} />
+            <Stack.Screen name="BloodPressure" component={BloodPressureScreen} />
+            <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="Security" component={SecurityScreen} />
+            <Stack.Screen name="Help" component={HelpScreen} />
           </>
         )}
       </Stack.Navigator>
@@ -254,51 +139,8 @@ export default function AppNavigator() {
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
-    flexDirection: 'row',
-    height: 78,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    paddingHorizontal: 6,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 18 : 10,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 0,
-    gap: 3,
-  },
-  tabLabel: {
-    fontSize: 10,
-  },
-  centerTab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 0,
-    marginTop: -26,
-  },
-  centerButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: {width: 0, height: 6},
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  centerLabel: {
-    marginTop: 4,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  loadingScreen: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  tabBar: {flexDirection: 'row', height: 76, borderTopWidth: 1, paddingHorizontal: 4, paddingBottom: Platform.OS === 'ios' ? 16 : 8, paddingTop: 6, alignItems: 'center'},
+  tabItem: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 4},
+  tabLabel: {fontSize: 10, marginTop: 3},
+  loading: {flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0D1117'},
 });

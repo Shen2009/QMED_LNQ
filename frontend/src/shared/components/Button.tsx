@@ -1,30 +1,23 @@
 import React from 'react';
 import {
-  ActivityIndicator,
-  StyleProp,
-  StyleSheet,
-  Text,
-  TextStyle,
   TouchableOpacity,
-  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
   ViewStyle,
+  TextStyle,
+  View,
 } from 'react-native';
-import {MaterialIcons} from '@expo/vector-icons';
-
 import {useTheme} from '../../core/theme/ThemeContext';
-
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
-  variant?: ButtonVariant;
-  icon?: keyof typeof MaterialIcons.glyphMap;
-  iconPosition?: 'left' | 'right';
-  style?: StyleProp<ViewStyle>;
-  textStyle?: StyleProp<TextStyle>;
+  variant?: 'primary' | 'secondary' | 'outline';
+  style?: ViewStyle;
+  textStyle?: TextStyle;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -33,94 +26,98 @@ const Button: React.FC<ButtonProps> = ({
   loading = false,
   disabled = false,
   variant = 'primary',
-  icon,
-  iconPosition = 'left',
   style,
   textStyle,
 }) => {
   const {theme} = useTheme();
-  const isDisabled = disabled || loading;
 
-  const palette = {
-    primary: {
-      bg: theme.colors.primary,
-      border: theme.colors.primary,
-      text: '#FFFFFF',
-    },
-    secondary: {
-      bg: theme.colors.cardLight,
-      border: theme.colors.border,
-      text: theme.colors.text,
-    },
-    outline: {
-      bg: 'transparent',
-      border: theme.colors.primary,
-      text: theme.colors.primary,
-    },
-    ghost: {
-      bg: 'transparent',
-      border: 'transparent',
-      text: theme.colors.textSecondary,
-    },
-    danger: {
-      bg: theme.colors.error,
-      border: theme.colors.error,
-      text: '#FFFFFF',
-    },
-  }[variant];
+  const getButtonStyle = (): ViewStyle => {
+    const baseStyle: ViewStyle = {
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    };
 
-  const buttonStyle: ViewStyle = {
-    backgroundColor: isDisabled ? theme.colors.disabled : palette.bg,
-    borderColor: isDisabled ? theme.colors.disabled : palette.border,
+    if (disabled) {
+      return {...baseStyle, backgroundColor: theme.colors.disabled};
+    }
+
+    switch (variant) {
+      case 'primary':
+        return {...baseStyle, backgroundColor: theme.colors.primary};
+      case 'secondary':
+        return {...baseStyle, backgroundColor: theme.colors.cardLight};
+      case 'outline':
+        return {
+          ...baseStyle,
+          backgroundColor: 'transparent',
+          borderWidth: 1,
+          borderColor: theme.colors.primary,
+        };
+      default:
+        return baseStyle;
+    }
   };
-  const contentColor = isDisabled ? theme.colors.placeholder : palette.text;
 
-  const renderedIcon = icon ? (
-    <MaterialIcons name={icon} size={19} color={contentColor} />
-  ) : null;
+  const getTextStyle = (): TextStyle => {
+    const baseStyle: TextStyle = {
+      fontSize: 16,
+      fontWeight: '600',
+    };
+
+    if (disabled) {
+      return {...baseStyle, color: theme.colors.placeholder};
+    }
+
+    switch (variant) {
+      case 'primary':
+        return {...baseStyle, color: '#FFFFFF'};
+      case 'secondary':
+        return {...baseStyle, color: theme.colors.text};
+      case 'outline':
+        return {...baseStyle, color: theme.colors.primary};
+      default:
+        return baseStyle;
+    }
+  };
+
+  const renderButtonContent = () => {
+    if (loading) {
+      return (
+        <ActivityIndicator
+          color={variant === 'primary' ? '#FFFFFF' : theme.colors.primary}
+        />
+      );
+    }
+
+    return <Text style={[getTextStyle(), textStyle]}>{title}</Text>;
+  };
 
   return (
     <TouchableOpacity
-      activeOpacity={0.78}
-      accessibilityRole="button"
-      disabled={isDisabled}
+      style={[getButtonStyle(), style]}
       onPress={onPress}
-      style={[styles.button, buttonStyle, style]}>
-      {loading ? (
-        <ActivityIndicator color={contentColor} />
-      ) : (
-        <View style={styles.content}>
-          {iconPosition === 'left' && renderedIcon}
-          <Text style={[styles.text, {color: contentColor}, textStyle]} numberOfLines={1}>
-            {title}
-          </Text>
-          {iconPosition === 'right' && renderedIcon}
+      disabled={disabled || loading}
+      activeOpacity={0.7}>
+      {variant === 'primary' ? (
+        <View style={[styles.primaryGlow, {borderRadius: theme.borderRadius.md}]}>
+          {renderButtonContent()}
         </View>
+      ) : (
+        renderButtonContent()
       )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  button: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 18,
-  },
-  content: {
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  text: {
-    flexShrink: 1,
-    fontSize: 15,
-    fontWeight: '700',
+  primaryGlow: {
+    shadowColor: '#0A84FF',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: {width: 0, height: 6},
   },
 });
 

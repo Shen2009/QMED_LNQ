@@ -31,7 +31,19 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Ứng dụng cần quyền camera cho các tính năng hình ảnh trong tương lai."
+          "cameraPermission": "Chức năng đo nhịp tim qua rPPG cần sử dụng Camera để quét khuôn mặt."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Q-Med camera permission"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Q-Med microphone permission"
         }
       ]
     ]

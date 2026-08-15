@@ -1,288 +1,170 @@
-import React, {useCallback, useState} from 'react';
-import {Alert, StyleSheet, Switch, Text, TouchableOpacity, View} from 'react-native';
-import {useFocusEffect} from '@react-navigation/native';
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
+  SafeAreaView,
+} from 'react-native';
+import {useTheme} from '../../../core/theme/ThemeContext';
+import {useColors} from '../../../core/theme/useColors';
+import {useLanguage} from '../../../core/i18n/LanguageContext';
 import {MaterialIcons} from '@expo/vector-icons';
 
-import Button from '../../../shared/components/Button';
-import Card from '../../../shared/components/Card';
-import Screen from '../../../shared/components/Screen';
-import {useLanguage} from '../../../core/i18n/LanguageContext';
-import {measurementService} from '../../../core/api/measurementService';
-import {localHistory} from '../../../core/storage/localHistory';
-import {healthProfileStorage, HealthProfile} from '../../../core/storage/healthProfile';
-import {useTheme} from '../../../core/theme/ThemeContext';
-
-const SettingsScreen = ({navigation}: any) => {
-  const {theme, isDark, toggleTheme} = useTheme();
-  const {language, setLanguage} = useLanguage();
-  const [historyCount, setHistoryCount] = useState(0);
-  const [profile, setProfile] = useState<HealthProfile | null>(null);
-
-  const loadLocalData = useCallback(async () => {
-    const [history, nextProfile] = await Promise.all([
-      localHistory.list(),
-      healthProfileStorage.get(),
-    ]);
-    setHistoryCount(history.length);
-    setProfile(nextProfile);
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadLocalData();
-    }, [loadLocalData]),
-  );
-
-  const clearHistory = () => {
-    Alert.alert('Xoá lịch sử đo', 'Toàn bộ kết quả đo trong AsyncStorage sẽ bị xoá.', [
-      {text: 'Huỷ', style: 'cancel'},
-      {
-        text: 'Xoá',
-        style: 'destructive',
-        onPress: async () => {
-          await localHistory.clear();
-          try {
-            await measurementService.clearRemoteHistory();
-          } catch {
-            // Keep settings usable even when the backend is not running.
-          }
-          await loadLocalData();
-        },
-      },
-    ]);
-  };
-
-  const clearProfile = () => {
-    Alert.alert('Xoá hồ sơ sức khỏe', 'Hồ sơ sức khỏe local sẽ được đưa về trạng thái trống.', [
-      {text: 'Huỷ', style: 'cancel'},
-      {
-        text: 'Xoá',
-        style: 'destructive',
-        onPress: async () => {
-          await healthProfileStorage.clear();
-          await loadLocalData();
-        },
-      },
-    ]);
-  };
-
-  const profileReady = Boolean(
-    profile?.fullName || profile?.age || profile?.heightCm || profile?.weightKg,
-  );
+const SettingsScreen = () => {
+  const {isDark, toggleTheme} = useTheme();
+  const C = useColors();
+  const {language, setLanguage, strings} = useLanguage();
 
   return (
-    <Screen scroll contentStyle={styles.content}>
-      <View style={styles.header}>
-        <View>
-          <Text style={[styles.eyebrow, {color: theme.colors.primary}]}>
-            App Settings
+    <SafeAreaView style={[styles.root, {backgroundColor: C.bg}]}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Text style={[styles.title, {color: C.text}]}>
+            {strings.settingsTitle || 'Cài đặt'}
           </Text>
-          <Text style={[styles.title, {color: theme.colors.text}]}>Cài đặt</Text>
         </View>
-        <View style={[styles.headerIcon, {backgroundColor: theme.colors.cardLight}]}>
-          <MaterialIcons name="settings" size={26} color={theme.colors.primary} />
-        </View>
-      </View>
 
-      <Card style={styles.profileCard}>
-        <View style={[styles.profileIcon, {backgroundColor: theme.colors.primary + '14'}]}>
-          <MaterialIcons name="health-and-safety" size={30} color={theme.colors.primary} />
-        </View>
-        <View style={styles.profileCopy}>
-          <Text style={[styles.profileTitle, {color: theme.colors.text}]}>
-            {profile?.fullName || 'Hồ sơ sức khỏe'}
-          </Text>
-          <Text style={[styles.profileText, {color: theme.colors.textSecondary}]}>
-            {profileReady
-              ? `Tuổi ${profile?.age || '--'} • ${profile?.heightCm || '--'}cm • ${profile?.weightKg || '--'}kg`
-              : 'Lưu thông tin cơ bản để app cá nhân hoá kết quả demo.'}
-          </Text>
-        </View>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => navigation.navigate('HealthProfile')}
-          style={[styles.openButton, {backgroundColor: theme.colors.primary}]}>
-          <MaterialIcons name="chevron-right" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-      </Card>
-
-      <Card style={styles.section}>
-        <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-          Giao diện
-        </Text>
-        <View style={styles.row}>
-          <View style={[styles.iconBox, {backgroundColor: theme.colors.cardLight}]}>
-            <MaterialIcons
-              name={isDark ? 'dark-mode' : 'light-mode'}
-              size={20}
-              color={theme.colors.primary}
+        {/* Appearance */}
+        <Text style={[styles.sectionLabel, {color: C.textSub}]}>{strings.settingsSectionAppearance}</Text>
+        <View style={[styles.section, {backgroundColor: C.surface, borderColor: C.border}]}>
+          <View style={styles.settingRow}>
+            <View style={[styles.settingIcon, {backgroundColor: C.textSub + '22'}]}>
+              <MaterialIcons name={isDark ? 'dark-mode' : 'light-mode'} size={18} color={C.textSub} />
+            </View>
+            <Text style={[styles.settingLabel, {color: C.text}]}>
+              {isDark ? (strings.lightMode || 'Chế độ sáng') : (strings.darkMode || 'Chế độ tối')}
+            </Text>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{false: C.border, true: C.teal + '88'}}
+              thumbColor={isDark ? C.teal : C.textSub}
             />
           </View>
-          <View style={styles.rowCopy}>
-            <Text style={[styles.rowLabel, {color: theme.colors.text}]}>
-              {isDark ? 'Dark mode' : 'Light mode'}
-            </Text>
-            <Text style={[styles.rowDescription, {color: theme.colors.textSecondary}]}>
-              Đổi giao diện sáng/tối cho toàn bộ app.
-            </Text>
-          </View>
-          <Switch value={isDark} onValueChange={toggleTheme} />
         </View>
-      </Card>
 
-      <Card style={styles.section}>
-        <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-          Ngôn ngữ
+        {/* Language */}
+        <Text style={[styles.sectionLabel, {color: C.textSub}]}>
+          {strings.language || 'Ngôn ngữ'}
         </Text>
-        <View style={styles.languageRow}>
+        <View style={[styles.section, {backgroundColor: C.surface, borderColor: C.border}]}>
           <TouchableOpacity
-            accessibilityRole="button"
             style={[
-              styles.languageChip,
-              {
-                backgroundColor: language === 'vi' ? theme.colors.primary : theme.colors.cardLight,
-                borderColor: language === 'vi' ? theme.colors.primary : theme.colors.border,
-              },
+              styles.langRow,
+              {borderBottomColor: C.border, borderBottomWidth: 1},
+              language === 'vi' && {borderLeftWidth: 3, borderLeftColor: C.teal, paddingLeft: 11},
             ]}
             onPress={() => setLanguage('vi')}>
-            <Text style={[styles.languageText, {color: language === 'vi' ? '#FFFFFF' : theme.colors.text}]}>
-              Tiếng Việt
-            </Text>
+            <View style={styles.langLeft}>
+              <Text style={styles.flag}>🇻🇳</Text>
+              <Text style={[styles.settingLabel, {color: language === 'vi' ? C.text : C.textSub}]}>
+                {strings.vietnamese || 'Tiếng Việt'}
+              </Text>
+              {language === 'vi' && (
+                <MaterialIcons name="check" size={18} color={C.teal} />
+              )}
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
-            accessibilityRole="button"
             style={[
-              styles.languageChip,
-              {
-                backgroundColor: language === 'en' ? theme.colors.primary : theme.colors.cardLight,
-                borderColor: language === 'en' ? theme.colors.primary : theme.colors.border,
-              },
+              styles.langRow,
+              language === 'en' && {borderLeftWidth: 3, borderLeftColor: C.teal, paddingLeft: 11},
             ]}
             onPress={() => setLanguage('en')}>
-            <Text style={[styles.languageText, {color: language === 'en' ? '#FFFFFF' : theme.colors.text}]}>
-              English
-            </Text>
+            <View style={styles.langLeft}>
+              <Text style={styles.flag}>🇬🇧</Text>
+              <Text style={[styles.settingLabel, {color: language === 'en' ? C.text : C.textSub}]}>
+                {strings.english || 'English'}
+              </Text>
+              {language === 'en' && (
+                <MaterialIcons name="check" size={18} color={C.teal} />
+              )}
+            </View>
           </TouchableOpacity>
         </View>
-      </Card>
 
-      <Card style={styles.section}>
-        <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-          Dữ liệu local
-        </Text>
-        <View style={styles.dataGrid}>
-          <View style={[styles.dataBox, {backgroundColor: theme.colors.cardLight}]}>
-            <Text style={[styles.dataNumber, {color: theme.colors.text}]}>
-              {historyCount}
-            </Text>
-            <Text style={[styles.dataLabel, {color: theme.colors.textSecondary}]}>
-              kết quả đo
-            </Text>
-          </View>
-          <View style={[styles.dataBox, {backgroundColor: theme.colors.cardLight}]}>
-            <Text style={[styles.dataNumber, {color: theme.colors.text}]}>
-              {profileReady ? 'Có' : 'Chưa'}
-            </Text>
-            <Text style={[styles.dataLabel, {color: theme.colors.textSecondary}]}>
-              hồ sơ
-            </Text>
-          </View>
+        {/* App info */}
+        <Text style={[styles.sectionLabel, {color: C.textSub}]}>{strings.settingsSectionApp}</Text>
+        <View style={[styles.section, {backgroundColor: C.surface, borderColor: C.border}]}>
+          {[
+            {label: strings.settingsVersion, right: '1.0.0', icon: 'info-outline'},
+            {label: strings.settingsTerms, icon: 'description'},
+            {label: strings.settingsPrivacy, icon: 'privacy-tip'},
+          ].map((item, i, arr) => (
+            <TouchableOpacity
+              key={item.label}
+              style={[
+                styles.settingRow,
+                i < arr.length - 1 && {borderBottomColor: C.border, borderBottomWidth: 1},
+              ]}>
+              <View style={[styles.settingIcon, {backgroundColor: C.textSub + '22'}]}>
+                <MaterialIcons name={item.icon as any} size={18} color={C.textSub} />
+              </View>
+              <Text style={[styles.settingLabel, {color: C.text}]}>{item.label}</Text>
+              {item.right ? (
+                <Text style={[styles.rightText, {color: C.textSub}]}>{item.right}</Text>
+              ) : (
+                <MaterialIcons name="chevron-right" size={20} color={C.textSub} />
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
-        <View style={styles.actions}>
-          <Button
-            title="Xoá lịch sử đo"
-            icon="history"
-            variant="outline"
-            onPress={clearHistory}
-            disabled={!historyCount}
-          />
-          <Button
-            title="Xoá hồ sơ"
-            icon="delete-outline"
-            variant="outline"
-            onPress={clearProfile}
-            disabled={!profileReady}
-          />
-        </View>
-      </Card>
 
-      <Card>
-        <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-          Ghi chú
-        </Text>
-        <Text style={[styles.body, {color: theme.colors.textSecondary}]}>
-          Settings hiện chỉ quản lý dữ liệu frontend local. Phần đăng nhập tài khoản
-          đã được bỏ khỏi skeleton mới theo yêu cầu.
-        </Text>
-      </Card>
-    </Screen>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  content: {gap: 16, paddingBottom: 100},
-  header: {
+  root: {flex: 1},
+  container: {flex: 1},
+  content: {paddingBottom: 100},
+  header: {paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8},
+  title: {fontSize: 26, fontWeight: '800'},
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  section: {
+    marginHorizontal: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
+  },
+  settingIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingLabel: {flex: 1, fontSize: 15},
+  langRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 16,
+    padding: 14,
   },
-  eyebrow: {fontSize: 13, fontWeight: '800', marginBottom: 4},
-  title: {fontSize: 30, fontWeight: '900'},
-  headerIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileCard: {flexDirection: 'row', alignItems: 'center', gap: 13},
-  profileIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileCopy: {flex: 1, minWidth: 0},
-  profileTitle: {fontSize: 18, fontWeight: '900'},
-  profileText: {fontSize: 13, lineHeight: 19, marginTop: 3},
-  openButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  section: {gap: 12},
-  sectionTitle: {fontSize: 17, fontWeight: '900'},
-  row: {flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48},
-  iconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowCopy: {flex: 1, minWidth: 0},
-  rowLabel: {fontSize: 15, fontWeight: '800'},
-  rowDescription: {fontSize: 12, lineHeight: 17, marginTop: 2},
-  languageRow: {flexDirection: 'row', gap: 10},
-  languageChip: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  languageText: {fontSize: 14, fontWeight: '900'},
-  dataGrid: {flexDirection: 'row', gap: 10},
-  dataBox: {flex: 1, borderRadius: 12, padding: 12},
-  dataNumber: {fontSize: 22, fontWeight: '900'},
-  dataLabel: {fontSize: 12, fontWeight: '700', marginTop: 4},
-  actions: {gap: 10},
-  body: {fontSize: 14, lineHeight: 21},
+  langLeft: {flexDirection: 'row', alignItems: 'center', gap: 10},
+  flag: {fontSize: 22},
+  rightText: {fontSize: 14},
 });
 
 export default SettingsScreen;
