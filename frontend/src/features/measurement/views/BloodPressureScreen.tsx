@@ -15,7 +15,7 @@ import {useDispatch} from 'react-redux';
 import {MaterialIcons, MaterialCommunityIcons} from '@expo/vector-icons';
 import {useColors} from '../../../core/theme/useColors';
 import {setMeasurementResult} from '../../../core/store/slices/measurementSlice';
-import measurementService from '../../../core/api/measurementService';
+import measurementService, {getMeasurementErrorMessage} from '../../../core/api/measurementService';
 import * as ImagePicker from 'expo-image-picker';
 import {useSafeGoBack} from '../../../core/hooks/useSafeGoBack';
 import WebCameraRecorder from '../../../shared/components/WebCameraRecorder';
@@ -177,7 +177,11 @@ const BloodPressureScreen = () => {
 
   const goToResult = useCallback(
     async (videoUri: string | null) => {
-      if (!videoUri) return;
+      if (!videoUri) {
+        Alert.alert('Không có video', 'Camera không trả về video. Hãy kiểm tra quyền camera và thử lại.');
+        setPhase('ready');
+        return;
+      }
       setPhase('uploading');
       try {
         const data = await measurementService.analyzeBloodPressureVideo(videoUri);
@@ -191,7 +195,10 @@ const BloodPressureScreen = () => {
         navigation.replace('MeasurementResult', {result, type: 'blood-pressure'});
       } catch (err) {
         console.warn('BP Upload failed:', err);
-        Alert.alert('Lỗi phân tích', 'Không thể phân tích huyết áp. Vui lòng thử lại.');
+        Alert.alert(
+          'Lỗi phân tích huyết áp',
+          getMeasurementErrorMessage(err, 'Không thể phân tích video. Hãy giữ mặt trong khung, đủ sáng và thử lại.'),
+        );
         setPhase('ready');
       }
     },
@@ -219,22 +226,30 @@ const BloodPressureScreen = () => {
 
     cancelledRef.current = false;
     const startRecording = async () => {
-      if (cameraRef.current?.waitUntilReady) {
-        await cameraRef.current.waitUntilReady();
-      } else {
-        await new Promise(r => setTimeout(r, 500));
-      }
-      if (!recordingRef.current) {
-        try {
+      try {
+        if (cameraRef.current?.waitUntilReady) {
+          await cameraRef.current.waitUntilReady();
+        } else {
+          await new Promise(r => setTimeout(r, 500));
+        }
+        if (!recordingRef.current) {
           recordingRef.current = true;
           const video = await cameraRef.current?.recordAsync({maxDuration: DURATION + 2});
           recordingRef.current = false;
           if (video?.uri && !cancelledRef.current) {
             clearCountdownInterval();
             goToResult(video.uri);
+          } else if (!cancelledRef.current) {
+            Alert.alert('Không ghi được video', 'Camera không tạo được video. Hãy kiểm tra quyền camera và thử lại.');
+            setPhase('ready');
           }
-        } catch {
-          recordingRef.current = false;
+        }
+      } catch (err) {
+        recordingRef.current = false;
+        if (!cancelledRef.current) {
+          console.warn('BP recording failed:', err);
+          Alert.alert('Camera chưa sẵn sàng', getMeasurementErrorMessage(err, 'Không thể khởi động camera.'));
+          setPhase('ready');
         }
       }
     };
@@ -322,10 +337,10 @@ const BloodPressureScreen = () => {
     return (
       <View style={{flex: 1, backgroundColor: '#000'}}>
         <StatusBar barStyle="light-content" />
-        <View style={StyleSheet.absoluteFill}>
-          {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={{flex: 1}} /> : <NativeCameraPreview ref={cameraRef} style={{flex: 1}} />}
+        <View style={[StyleSheet.absoluteFill, {overflow: 'hidden'}]}>
+          {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={StyleSheet.absoluteFill} /> : <NativeCameraPreview ref={cameraRef} style={StyleSheet.absoluteFill} />}
         </View>
-        <View style={[StyleSheet.absoluteFill, {backgroundColor: 'rgba(0,0,0,0.42)'}]} />
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: 'rgba(0,0,0,0.42)'}]} />
 
         <SafeAreaView style={[StyleSheet.absoluteFill, {alignItems: 'center'}]}>
           {/* Live pill */}

@@ -40,6 +40,8 @@ class StressServiceImpl(IStressService):
         model, model_cfg = _load_model(input_data.model_key, input_data.device)
         img_size = model_cfg["img_size"]
         frames_cropped, face_box = _detect_and_crop_faces(frames_rgb, img_size)
+        if face_box is None:
+            raise ValueError("Không nhận diện được khuôn mặt. Hãy giữ mặt trong khung và đảm bảo đủ ánh sáng.")
         preds = _run_inference(frames_cropped, model, model_cfg, input_data.device)
         
         preds = np.where(np.isfinite(preds), preds, 0.0)
@@ -60,12 +62,7 @@ class StressServiceImpl(IStressService):
             debug_info["rr_count"] = int(rr_ms.size)
             
             if rr_ms.size < 4:
-                debug_info["error"] = "Not enough RR intervals after extraction"
-                return StressInferenceResult(
-                    signal_quality=quality_flags,
-                    metadata=metadata,
-                    debug_info=debug_info
-                )
+                raise ValueError("Tín hiệu nhịp tim chưa đủ rõ để phân tích stress. Hãy giữ yên điện thoại và đo lại.")
 
             features_vector = _build_feature_vector(rr_ms)
             
@@ -92,11 +89,8 @@ class StressServiceImpl(IStressService):
                 debug_info=debug_info
             )
 
+        except ValueError:
+            raise
         except Exception as e:
             logger.warning("Stress feature/inference failed", exc_info=True)
-            debug_info["error"] = f"Inference failed: {str(e)}"
-            return StressInferenceResult(
-                signal_quality=quality_flags,
-                metadata=metadata,
-                debug_info=debug_info
-            )
+            raise ValueError(f"Không thể hoàn tất phân tích stress: {e}") from e

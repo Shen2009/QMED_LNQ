@@ -52,7 +52,7 @@ async def analyse_video(
         return result.model_dump()
     except ValueError as val_err:
         logger.warning("Stress analyse bad input: %s ip=%s", val_err, client_ip)
-        raise HTTPException(status_code=400, detail=str(val_err))
+        raise HTTPException(status_code=422, detail=str(val_err))
     except Exception as e:
         logger.exception("Stress analyse error: file=%s ip=%s", filename, client_ip)
         raise HTTPException(status_code=500, detail=str(e))

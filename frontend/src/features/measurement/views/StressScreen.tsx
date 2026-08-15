@@ -16,7 +16,7 @@ import {MaterialIcons, MaterialCommunityIcons} from '@expo/vector-icons';
 import {useColors} from '../../../core/theme/useColors';
 import {useLanguage} from '../../../core/i18n/LanguageContext';
 import {setMeasurementResult} from '../../../core/store/slices/measurementSlice';
-import measurementService from '../../../core/api/measurementService';
+import measurementService, {getMeasurementErrorMessage} from '../../../core/api/measurementService';
 import * as ImagePicker from 'expo-image-picker';
 import {useSafeGoBack} from '../../../core/hooks/useSafeGoBack';
 import historyService from '../../../core/api/historyService';
@@ -182,10 +182,17 @@ const StressScreen = () => {
   // ── Navigate to result (shared by recording + gallery) ──
   const goToResult = useCallback(
     async (videoUri: string | null) => {
-      if (!videoUri) return;
+      if (!videoUri) {
+        Alert.alert('Không có video', 'Camera không trả về video. Hãy kiểm tra quyền camera và thử lại.');
+        setPhase('ready');
+        return;
+      }
       setPhase('uploading');
       try {
         const data = await measurementService.analyzeStressVideo(videoUri);
+        if (data.stress_score == null) {
+          throw new Error('Tín hiệu khuôn mặt chưa đủ rõ để tính mức stress. Hãy giữ mặt trong khung, đủ sáng và đo lại.');
+        }
         const stressLevel = data.stress_score ?? null;
         const result = {
           ...data,
@@ -199,7 +206,10 @@ const StressScreen = () => {
         navigation.replace('MeasurementResult', {result, type: 'stress'});
       } catch (err) {
         console.warn('Upload failed:', err);
-        Alert.alert('Lỗi phân tích', 'Không thể phân tích stress. Vui lòng thử lại.');
+        Alert.alert(
+          'Lỗi phân tích stress',
+          getMeasurementErrorMessage(err, 'Không thể phân tích video. Hãy giữ mặt trong khung, đủ sáng và thử lại.'),
+        );
         setPhase('ready');
       }
     },
@@ -228,13 +238,13 @@ const StressScreen = () => {
 
     cancelledRef.current = false; // reset mỗi lần bắt đầu đo
     const startRecording = async () => {
-      if (cameraRef.current?.waitUntilReady) {
-        await cameraRef.current.waitUntilReady();
-      } else {
-        await new Promise(r => setTimeout(r, 500));
-      }
-      if (!recordingRef.current) {
-        try {
+      try {
+        if (cameraRef.current?.waitUntilReady) {
+          await cameraRef.current.waitUntilReady();
+        } else {
+          await new Promise(r => setTimeout(r, 500));
+        }
+        if (!recordingRef.current) {
           recordingRef.current = true;
           const video = await cameraRef.current?.recordAsync({maxDuration: DURATION + 2});
           recordingRef.current = false;
@@ -242,9 +252,17 @@ const StressScreen = () => {
           if (video?.uri && !cancelledRef.current) {
             clearCountdownInterval();
             goToResult(video.uri);
+          } else if (!cancelledRef.current) {
+            Alert.alert('Không ghi được video', 'Camera không tạo được video. Hãy kiểm tra quyền camera và thử lại.');
+            setPhase('ready');
           }
-        } catch {
-          recordingRef.current = false;
+        }
+      } catch (err) {
+        recordingRef.current = false;
+        if (!cancelledRef.current) {
+          console.warn('Stress recording failed:', err);
+          Alert.alert('Camera chưa sẵn sàng', getMeasurementErrorMessage(err, 'Không thể khởi động camera.'));
+          setPhase('ready');
         }
       }
     };
@@ -334,10 +352,10 @@ const StressScreen = () => {
       <View style={{flex: 1, backgroundColor: '#000'}}>
         <StatusBar barStyle="light-content" />
         {/* SINGLE persistent CameraView — no remount = no black screen on Android */}
-        <View style={StyleSheet.absoluteFill}>
-          {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={{flex: 1}} /> : <NativeCameraPreview ref={cameraRef} style={{flex: 1}} />}
+        <View style={[StyleSheet.absoluteFill, {overflow: 'hidden'}]}>
+          {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={StyleSheet.absoluteFill} /> : <NativeCameraPreview ref={cameraRef} style={StyleSheet.absoluteFill} />}
         </View>
-        <View style={[StyleSheet.absoluteFill, {backgroundColor: 'rgba(0,0,0,0.42)'}]} />
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: 'rgba(0,0,0,0.42)'}]} />
 
         <SafeAreaView style={[StyleSheet.absoluteFill, {alignItems: 'center'}]}>
           <View style={s.livePill}>

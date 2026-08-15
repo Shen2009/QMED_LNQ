@@ -116,8 +116,9 @@ def _build_feature_vector(rr_ms: np.ndarray) -> np.ndarray:
     }
 
     feature_vector = np.array([feature_map[name] for name in FEATURE_ORDER], dtype=np.float64)
-    if not np.all(np.isfinite(feature_vector)):
-        raise ValueError("Feature vector contains NaN or infinite values")
+    # Short recordings can make kurtosis/PSD estimators undefined. Treat those
+    # terms as neutral instead of returning a successful response with no score.
+    feature_vector = np.nan_to_num(feature_vector, nan=0.0, posinf=0.0, neginf=0.0)
 
     return feature_vector
 

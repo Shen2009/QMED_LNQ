@@ -252,9 +252,9 @@ const HealthExamScreen = () => {
       if (STEPS[stepIdx].id === 'face') {
         setTimeout(async () => {
           if (!isRecordingRef.current && cameraRef.current) {
-            await cameraRef.current.waitUntilReady?.();
-            isRecordingRef.current = true;
             try {
+              await cameraRef.current.waitUntilReady?.();
+              isRecordingRef.current = true;
               const video = await cameraRef.current.recordAsync({ maxDuration: 32 });
               isRecordingRef.current = false;
               if (video?.uri) {
@@ -267,6 +267,8 @@ const HealthExamScreen = () => {
 
                 const rppg  = rppgResult.status  === 'fulfilled' ? rppgResult.value  : null;
                 const stress = stressResult.status === 'fulfilled' ? stressResult.value : null;
+                const rppgOk = rppg?.hr_fft != null;
+                const stressOk = stress?.stress_score != null;
 
                 setResults(prev => ({...prev, face: {
                   step: 'face',
@@ -274,11 +276,12 @@ const HealthExamScreen = () => {
                   hr_bpm:        rppg?.hr_fft          ?? undefined,
                   hrv_ms:        stress?.hrv_ms         ?? rppg?.hrv_ms ?? undefined,
                   stress_level:  stress?.stress_score   ?? rppg?.stress_level ?? undefined,
-                  error:         !rppg && !stress,
+                  error:         !rppgOk && !stressOk,
                 }}));
                 setDoneSteps(prev => [...prev, stepIdx]);
                 setPhase('step_done');
-
+              } else {
+                throw new Error('Camera không trả về video.');
               }
             } catch (e) {
                isRecordingRef.current = false;
@@ -291,9 +294,9 @@ const HealthExamScreen = () => {
       } else if (STEPS[stepIdx].id === 'voice') {
         setTimeout(async () => {
           if (!isRecordingRef.current && cameraRef.current) {
-            await cameraRef.current.waitUntilReady?.();
-            isRecordingRef.current = true;
             try {
+              await cameraRef.current.waitUntilReady?.();
+              isRecordingRef.current = true;
               const video = await cameraRef.current.recordAsync({ maxDuration: 32 });
               isRecordingRef.current = false;
               if (video?.uri) {
@@ -307,6 +310,7 @@ const HealthExamScreen = () => {
                       diastolic: data.diastolic_avg ?? undefined,
                     },
                     breathing_rate: undefined,
+                    error: data.systolic_avg == null || data.diastolic_avg == null,
                   }}));
                 } catch (e) {
                   console.warn('Lỗi phân tích huyết áp:', e);
@@ -314,6 +318,8 @@ const HealthExamScreen = () => {
                 }
                 setDoneSteps(prev => [...prev, stepIdx]);
                 setPhase('step_done');
+              } else {
+                throw new Error('Camera không trả về video.');
               }
             } catch (e) {
                isRecordingRef.current = false;

@@ -46,7 +46,14 @@ const asMedia = (media: string | MediaAsset, fallbackName: string, fallbackType:
     ? {uri: media, name: fallbackName, type: fallbackType}
     : {name: fallbackName, type: fallbackType, ...media};
 
+const normalizeNativeUri = (uri: string) => {
+  if (/^(file|content|http|https|blob):\/\//i.test(uri)) return uri;
+  return Platform.OS === 'web' ? uri : `file://${uri}`;
+};
+
 const createFileForm = async (field: string, media: MediaAsset) => {
+  if (!media.uri) throw new Error('Khong tim thay file video vua ghi.');
+
   const form = new FormData();
   if (Platform.OS === 'web') {
     const response = await fetch(media.uri);
@@ -55,12 +62,23 @@ const createFileForm = async (field: string, media: MediaAsset) => {
     form.append(field, blob, media.name || `qmed-${Date.now()}`);
   } else {
     form.append(field, {
-      uri: media.uri,
+      uri: normalizeNativeUri(media.uri),
       name: media.name || `qmed-${Date.now()}`,
       type: media.type || 'application/octet-stream',
     } as any);
   }
   return form;
+};
+
+export const getMeasurementErrorMessage = (error: any, fallback: string) => {
+  const detail = error?.response?.data?.detail || error?.message;
+  if (!detail) return fallback;
+  if (typeof detail === 'string') return detail;
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return fallback;
+  }
 };
 
 const upload = async <T>(path: string, field: string, media: MediaAsset) => {
