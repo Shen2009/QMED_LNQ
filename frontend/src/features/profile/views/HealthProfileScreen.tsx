@@ -38,6 +38,8 @@ const activityOptions: Array<{label: string; value: ActivityLevel; description: 
   {label: 'Cao', value: 'high', description: 'Tập luyện thường xuyên'},
 ];
 
+const SETUP_TRANSITION_MS = 450;
+
 interface HealthProfileScreenProps {
   navigation: any;
   requiredSetup?: boolean;
@@ -126,7 +128,7 @@ const HealthProfileScreen = ({
     setSaving(false);
     if (requiredSetup) {
       setCompletingSetup(true);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, SETUP_TRANSITION_MS));
       onCompleted?.();
       return;
     }
@@ -242,6 +244,30 @@ const HealthProfileScreen = ({
             cho các phân tích sức khỏe chính xác hơn khi có model thật.
           </Text>
         </Card>
+
+        {requiredSetup && profileComplete ? (
+          <Card style={[styles.readyCard, {borderColor: theme.colors.success}]}>
+            <View style={styles.readyHeader}>
+              <View style={[styles.readyIcon, {backgroundColor: theme.colors.success + '16'}]}>
+                <MaterialIcons name="task-alt" size={22} color={theme.colors.success} />
+              </View>
+              <View style={styles.readyCopy}>
+                <Text style={[styles.readyTitle, {color: theme.colors.text}]}>
+                  Thông tin đã đủ
+                </Text>
+                <Text style={[styles.readyText, {color: theme.colors.textSecondary}]}>
+                  Bạn có thể hoàn thành để vào trang chủ.
+                </Text>
+              </View>
+            </View>
+            <Button
+              title="Hoàn thành"
+              icon="check-circle"
+              loading={saving}
+              onPress={saveProfile}
+            />
+          </Card>
+        ) : null}
           </View>
 
           <View style={[styles.formColumn, isWide && styles.formColumnWide]}>
@@ -383,10 +409,9 @@ const HealthProfileScreen = ({
 
         <View style={styles.actions}>
           <Button
-            title={requiredSetup ? 'Hoàn thiện' : 'Lưu hồ sơ'}
+            title={requiredSetup ? 'Hoàn thành' : 'Lưu hồ sơ'}
             icon={requiredSetup ? 'check-circle' : 'save'}
             loading={saving}
-            disabled={requiredSetup && !profileComplete}
             onPress={saveProfile}
           />
           {requiredSetup && !profileComplete ? (
@@ -481,6 +506,18 @@ const styles = StyleSheet.create({
   },
   insightTitle: {fontSize: 16, fontWeight: '900'},
   insightText: {fontSize: 13, lineHeight: 20},
+  readyCard: {gap: 12, marginBottom: 16},
+  readyHeader: {flexDirection: 'row', alignItems: 'center', gap: 11},
+  readyIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readyCopy: {flex: 1, minWidth: 0},
+  readyTitle: {fontSize: 15, fontWeight: '900'},
+  readyText: {fontSize: 12, lineHeight: 17, marginTop: 2},
   summaryIcon: {
     width: 56,
     height: 56,

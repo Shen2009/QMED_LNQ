@@ -17,12 +17,12 @@ const HomeScreen = ({navigation}: any) => {
     Animated.parallel([
       Animated.timing(fade, {
         toValue: 1,
-        duration: 520,
+        duration: 260,
         useNativeDriver: true,
       }),
       Animated.timing(slide, {
         toValue: 0,
-        duration: 520,
+        duration: 260,
         useNativeDriver: true,
       }),
     ]).start();

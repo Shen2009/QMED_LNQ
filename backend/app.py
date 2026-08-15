@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from config import APP_NAME, APP_VERSION, HOST, MAX_JSON_BYTES, PORT
 from services.ai_engine import analyze_measurement
 from services.qbot_service import build_qbot_reply
+from services.rppg_service import RppgError, analyze_rppg_payload
 from storage import (
     clear_measurements,
     delete_measurement,
@@ -38,7 +39,7 @@ class QMedHandler(BaseHTTPRequestHandler):
                     "service": APP_NAME,
                     "version": APP_VERSION,
                     "storage": "sqlite",
-                    "aiEngine": "demo",
+                    "aiEngine": "demo+rppg-signal",
                 }
             )
             return
@@ -83,6 +84,18 @@ class QMedHandler(BaseHTTPRequestHandler):
             try:
                 record = normalize_measurement({**result, "id": body.get("id")})
             except ValidationError as error:
+                self._send_json({"error": str(error)}, status=400)
+                return
+
+            save_measurement(record)
+            self._send_json({"data": record}, status=201)
+            return
+
+        if path == "/api/rppg/analyze-signal":
+            try:
+                result = analyze_rppg_payload(body)
+                record = normalize_measurement({**result, "id": body.get("id")})
+            except (RppgError, ValidationError) as error:
                 self._send_json({"error": str(error)}, status=400)
                 return
 
