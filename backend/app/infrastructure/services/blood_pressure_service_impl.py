@@ -135,9 +135,24 @@ def _extract_ppg_signal(video_path: str) -> tuple[np.ndarray, float, int]:
             if not ret:
                 break
             frame_count += 1
+            # FaceMesh is much more reliable and faster on a bounded frame size
+            # than on 1080p/4K phone recordings.
+            if frame.shape[1] > 640:
+                scale = 640 / frame.shape[1]
+                frame = cv2.resize(
+                    frame,
+                    (640, max(1, int(frame.shape[0] * scale))),
+                    interpolation=cv2.INTER_AREA,
+                )
+
             img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = face_mesh.process(img_rgb)
             if not result.multi_face_landmarks:
+                # Preserve the time series when one or two frames are missed.
+                # A short gap is safer to interpolate than to shift the sample
+                # rate and make the BP windows invalid.
+                if signal_values:
+                    signal_values.append(signal_values[-1])
                 continue
 
             landmarks = result.multi_face_landmarks[0].landmark
@@ -151,8 +166,12 @@ def _extract_ppg_signal(video_path: str) -> tuple[np.ndarray, float, int]:
 
     cap.release()
 
-    if len(signal_values) < 500:
-        raise ValueError(f"Insufficient extracted rPPG samples ({len(signal_values)}). Need at least 500.")
+    minimum_samples = 438  # one 437-sample inference window plus one frame
+    if len(signal_values) < minimum_samples:
+        raise ValueError(
+            f"Insufficient extracted rPPG samples ({len(signal_values)}). "
+            f"Need at least {minimum_samples}. Keep your face centered and well lit."
+        )
 
     raw_signal = np.array(signal_values, dtype=np.float32)
     detrended = detrend(raw_signal)
@@ -199,7 +218,7 @@ class BloodPressureServiceImpl(IBloodPressureService):
         model = _load_bp_model(model_path, device)
 
         with torch.no_grad():
-            for idx, start in enumerate(range(0, len(signal) - window_size, step_size)):
+            for idx, start in enumerate(range(0, len(signal) - window_size + 1, step_size)):
                 segment = signal[start:start + window_size]
                 tensor = torch.tensor(segment, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(device)
                 pred = model(tensor).cpu().numpy().flatten()
