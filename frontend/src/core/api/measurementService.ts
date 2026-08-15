@@ -26,4 +26,8 @@ export const measurementService = {
     );
     return response.data.data;
   },
+
+  async clearRemoteHistory() {
+    await apiClient.delete('/measurements');
+  },
 };

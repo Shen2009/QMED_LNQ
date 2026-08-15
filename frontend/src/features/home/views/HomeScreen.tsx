@@ -1,5 +1,5 @@
-import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import React, {useEffect, useRef} from 'react';
+import {Animated, StyleSheet, Text, View} from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
 
 import Card from '../../../shared/components/Card';
@@ -9,6 +9,42 @@ import {useTheme} from '../../../core/theme/ThemeContext';
 
 const HomeScreen = ({navigation}: any) => {
   const {theme} = useTheme();
+  const pulse = useRef(new Animated.Value(1)).current;
+  const fade = useRef(new Animated.Value(0)).current;
+  const slide = useRef(new Animated.Value(18)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fade, {
+        toValue: 1,
+        duration: 520,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slide, {
+        toValue: 0,
+        duration: 520,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.08,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    pulseLoop.start();
+    return () => pulseLoop.stop();
+  }, [fade, pulse, slide]);
 
   return (
     <Screen scroll contentStyle={styles.content}>
@@ -21,11 +57,19 @@ const HomeScreen = ({navigation}: any) => {
             Trang chủ
           </Text>
         </View>
-        <View style={[styles.iconBox, {backgroundColor: theme.colors.cardLight}]}>
+        <Animated.View
+          style={[
+            styles.iconBox,
+            {
+              backgroundColor: theme.colors.cardLight,
+              transform: [{scale: pulse}],
+            },
+          ]}>
           <MaterialIcons name="monitor-heart" size={26} color={theme.colors.primary} />
-        </View>
+        </Animated.View>
       </View>
 
+      <Animated.View style={{opacity: fade, transform: [{translateY: slide}]}}>
       <Card>
         <Text style={[styles.cardTitle, {color: theme.colors.text}]}>
           Nội dung phần Home
@@ -36,7 +80,9 @@ const HomeScreen = ({navigation}: any) => {
           nhanh ở đây.
         </Text>
       </Card>
+      </Animated.View>
 
+      <Animated.View style={{opacity: fade, transform: [{translateY: slide}]}}>
       <Card>
         <Text style={[styles.cardTitle, {color: theme.colors.text}]}>
           Chức năng chính
@@ -53,13 +99,16 @@ const HomeScreen = ({navigation}: any) => {
           </Text>
         </View>
       </Card>
+      </Animated.View>
 
+      <Animated.View style={{opacity: fade}}>
       <Button
         title="Bắt đầu xây phần đo"
         icon="arrow-forward"
         iconPosition="right"
         onPress={() => navigation.navigate('Measure')}
       />
+      </Animated.View>
     </Screen>
   );
 };

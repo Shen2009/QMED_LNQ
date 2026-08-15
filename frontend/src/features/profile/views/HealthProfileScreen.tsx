@@ -1,6 +1,8 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Alert,
+  ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -20,6 +22,7 @@ import {
   Gender,
   healthProfileStorage,
   HealthProfile,
+  isHealthProfileComplete,
 } from '../../../core/storage/healthProfile';
 
 const genderOptions: Array<{label: string; value: Gender; icon: keyof typeof MaterialIcons.glyphMap}> = [
@@ -34,14 +37,48 @@ const activityOptions: Array<{label: string; value: ActivityLevel; description: 
   {label: 'Cao', value: 'high', description: 'Tập luyện thường xuyên'},
 ];
 
-const HealthProfileScreen = ({navigation}: any) => {
+interface HealthProfileScreenProps {
+  navigation: any;
+  requiredSetup?: boolean;
+  onCompleted?: () => void;
+}
+
+const HealthProfileScreen = ({
+  navigation,
+  requiredSetup = false,
+  onCompleted,
+}: HealthProfileScreenProps) => {
   const {theme} = useTheme();
   const [profile, setProfile] = useState<HealthProfile | null>(null);
   const [saving, setSaving] = useState(false);
+  const [completingSetup, setCompletingSetup] = useState(false);
+  const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     healthProfileStorage.get().then(setProfile);
   }, []);
+
+  useEffect(() => {
+    if (!completingSetup) return;
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.12,
+          duration: 680,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 680,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [completingSetup, pulse]);
 
   const bmi = useMemo(() => {
     if (!profile) return null;
@@ -68,9 +105,24 @@ const HealthProfileScreen = ({navigation}: any) => {
 
   const saveProfile = async () => {
     if (!profile) return;
+    if (!isHealthProfileComplete(profile)) {
+      Alert.alert(
+        'Thiếu thông tin',
+        'Anh cần nhập họ tên, tuổi, chiều cao và cân nặng trước khi vào app.',
+      );
+      return;
+    }
+
     setSaving(true);
     await healthProfileStorage.save(profile);
     setSaving(false);
+    if (requiredSetup) {
+      setCompletingSetup(true);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      onCompleted?.();
+      return;
+    }
+
     Alert.alert('Đã lưu', 'Hồ sơ sức khỏe đã được lưu cục bộ trên thiết bị.');
   };
 
@@ -99,23 +151,54 @@ const HealthProfileScreen = ({navigation}: any) => {
     );
   }
 
+  if (completingSetup) {
+    return (
+      <Screen contentStyle={styles.setupLoadingContent}>
+        <Animated.View
+          style={[
+            styles.loadingLogo,
+            {
+              backgroundColor: theme.colors.primary + '16',
+              transform: [{scale: pulse}],
+            },
+          ]}>
+          <MaterialIcons name="monitor-heart" size={42} color={theme.colors.primary} />
+        </Animated.View>
+        <Text style={[styles.setupLoadingTitle, {color: theme.colors.text}]}>
+          Đang chuẩn bị trang chủ
+        </Text>
+        <Text style={[styles.setupLoadingText, {color: theme.colors.textSecondary}]}>
+          Q-Med đang cá nhân hoá trải nghiệm dựa trên hồ sơ sức khỏe của bạn.
+        </Text>
+        <ActivityIndicator color={theme.colors.primary} style={styles.loadingSpinner} />
+      </Screen>
+    );
+  }
+
   return (
     <Screen scroll contentStyle={styles.content}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => navigation.goBack()}
-            style={[styles.backButton, {backgroundColor: theme.colors.cardLight}]}>
-            <MaterialIcons name="arrow-back" size={22} color={theme.colors.text} />
-          </TouchableOpacity>
+          {!requiredSetup ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => navigation.goBack()}
+              style={[styles.backButton, {backgroundColor: theme.colors.cardLight}]}>
+              <MaterialIcons name="arrow-back" size={22} color={theme.colors.text} />
+            </TouchableOpacity>
+          ) : null}
           <View style={styles.headerCopy}>
             <Text style={[styles.eyebrow, {color: theme.colors.primary}]}>
-              Health Profile
+              {requiredSetup ? 'Before You Start' : 'Health Profile'}
             </Text>
             <Text style={[styles.title, {color: theme.colors.text}]}>
-              Hồ sơ sức khỏe
+              {requiredSetup ? 'Điền thông tin của bạn' : 'Hồ sơ sức khỏe'}
             </Text>
+            {requiredSetup ? (
+              <Text style={[styles.requiredHint, {color: theme.colors.textSecondary}]}>
+                Q-Med cần thông tin cơ bản để cá nhân hoá giao diện và kết quả demo.
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -271,17 +354,19 @@ const HealthProfileScreen = ({navigation}: any) => {
 
         <View style={styles.actions}>
           <Button
-            title="Lưu hồ sơ"
+            title={requiredSetup ? 'Lưu và vào app' : 'Lưu hồ sơ'}
             icon="save"
             loading={saving}
             onPress={saveProfile}
           />
-          <Button
-            title="Xoá hồ sơ local"
-            icon="delete-outline"
-            variant="outline"
-            onPress={resetProfile}
-          />
+          {!requiredSetup ? (
+            <Button
+              title="Xoá hồ sơ local"
+              icon="delete-outline"
+              variant="outline"
+              onPress={resetProfile}
+            />
+          ) : null}
         </View>
       </KeyboardAvoidingView>
     </Screen>
@@ -292,6 +377,28 @@ const styles = StyleSheet.create({
   content: {gap: 16, paddingBottom: 100},
   loadingContent: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   loadingText: {fontSize: 14, fontWeight: '700'},
+  setupLoadingContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  loadingLogo: {
+    width: 96,
+    height: 96,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 22,
+  },
+  setupLoadingTitle: {fontSize: 26, fontWeight: '900', textAlign: 'center'},
+  setupLoadingText: {
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  loadingSpinner: {marginTop: 24},
   header: {flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16},
   backButton: {
     width: 44,
@@ -303,6 +410,7 @@ const styles = StyleSheet.create({
   headerCopy: {flex: 1, minWidth: 0},
   eyebrow: {fontSize: 13, fontWeight: '800'},
   title: {fontSize: 30, fontWeight: '900', marginTop: 3},
+  requiredHint: {fontSize: 13, lineHeight: 19, marginTop: 6},
   summaryCard: {flexDirection: 'row', alignItems: 'center', gap: 13, marginBottom: 16},
   summaryIcon: {
     width: 56,

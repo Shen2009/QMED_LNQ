@@ -28,6 +28,14 @@ export const DEFAULT_HEALTH_PROFILE: HealthProfile = {
   emergencyContact: '',
 };
 
+export const isHealthProfileComplete = (profile: HealthProfile) =>
+  Boolean(
+    profile.fullName.trim() &&
+      profile.age.trim() &&
+      profile.heightCm.trim() &&
+      profile.weightKg.trim(),
+  );
+
 export const healthProfileStorage = {
   async get() {
     const raw = await AsyncStorage.getItem(HEALTH_PROFILE_KEY);

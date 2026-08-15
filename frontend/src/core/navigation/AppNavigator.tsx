@@ -1,10 +1,11 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createStackNavigator} from '@react-navigation/stack';
 import {MaterialIcons} from '@expo/vector-icons';
 import {
   Platform,
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,6 +15,10 @@ import {useSelector} from 'react-redux';
 
 import {useLanguage} from '../i18n/LanguageContext';
 import {RootState} from '../store/store';
+import {
+  healthProfileStorage,
+  isHealthProfileComplete,
+} from '../storage/healthProfile';
 import {useTheme} from '../theme/ThemeContext';
 
 import LanguageSelectScreen from '../../features/onboarding/views/LanguageSelectScreen';
@@ -33,13 +38,14 @@ import SettingsScreen from '../../features/settings/views/SettingsScreen';
 export type RootStackParamList = {
   LanguageSelect: undefined;
   Onboarding: undefined;
+  HealthProfileLoading: undefined;
   Main: undefined;
   FaceRppg: undefined;
   Stress: undefined;
   BloodPressure: undefined;
   Heartbeat: undefined;
   MeasurementResult: {result?: any};
-  HealthProfile: undefined;
+  HealthProfile: {requiredSetup?: boolean} | undefined;
 };
 
 export type MainTabParamList = {
@@ -172,12 +178,36 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
+  const {theme} = useTheme();
+  const [profileReady, setProfileReady] = useState<boolean | null>(null);
   const onboardingDone = useSelector(
     (state: RootState) => state.app.onboardingDone,
   );
   const languageSelectDone = useSelector(
     (state: RootState) => state.app.languageSelectDone,
   );
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProfileStatus = async () => {
+      if (!languageSelectDone || !onboardingDone) {
+        if (mounted) setProfileReady(null);
+        return;
+      }
+
+      const profile = await healthProfileStorage.get();
+      if (mounted) {
+        setProfileReady(isHealthProfileComplete(profile));
+      }
+    };
+
+    loadProfileStatus();
+
+    return () => {
+      mounted = false;
+    };
+  }, [languageSelectDone, onboardingDone]);
 
   return (
     <NavigationContainer>
@@ -186,6 +216,24 @@ export default function AppNavigator() {
           <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} />
         ) : !onboardingDone ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        ) : profileReady === null ? (
+          <Stack.Screen name="HealthProfileLoading">
+            {() => (
+              <View style={[styles.loadingScreen, {backgroundColor: theme.colors.background}]}>
+                <ActivityIndicator color={theme.colors.primary} />
+              </View>
+            )}
+          </Stack.Screen>
+        ) : !profileReady ? (
+          <Stack.Screen name="HealthProfile">
+            {props => (
+              <HealthProfileScreen
+                {...props}
+                requiredSetup
+                onCompleted={() => setProfileReady(true)}
+              />
+            )}
+          </Stack.Screen>
         ) : (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
@@ -247,5 +295,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 10,
     fontWeight: '700',
+  },
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

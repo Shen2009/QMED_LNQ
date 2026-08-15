@@ -6,6 +6,7 @@ import {MaterialIcons} from '@expo/vector-icons';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import Screen from '../../../shared/components/Screen';
+import {measurementService} from '../../../core/api/measurementService';
 import {useTheme} from '../../../core/theme/ThemeContext';
 import {
   localHistory,
@@ -56,7 +57,25 @@ const HistoryScreen = () => {
 
   const removeRecord = async (id: string) => {
     await localHistory.remove(id);
-    await loadHistory();
+    const nextRecords = await localHistory.list();
+    setRecords(nextRecords);
+    if (
+      selectedType !== 'All' &&
+      !nextRecords.some(record => record.type === selectedType)
+    ) {
+      setSelectedType('All');
+    }
+  };
+
+  const executeClearAll = async () => {
+    await localHistory.clear();
+    try {
+      await measurementService.clearRemoteHistory();
+    } catch {
+      // Backend may be offline; local history is still cleared for the user.
+    }
+    setSelectedType('All');
+    setRecords([]);
   };
 
   const clearAll = () => {
@@ -65,10 +84,7 @@ const HistoryScreen = () => {
       {
         text: 'Xoá',
         style: 'destructive',
-        onPress: async () => {
-          await localHistory.clear();
-          await loadHistory();
-        },
+        onPress: executeClearAll,
       },
     ]);
   };
@@ -226,6 +242,14 @@ const HistoryScreen = () => {
       )}
 
       <Button title="Làm mới lịch sử" icon="refresh" variant="outline" onPress={refresh} />
+      {records.length ? (
+        <Button
+          title="Xoá toàn bộ lịch sử"
+          icon="delete-outline"
+          variant="danger"
+          onPress={clearAll}
+        />
+      ) : null}
     </Screen>
   );
 };

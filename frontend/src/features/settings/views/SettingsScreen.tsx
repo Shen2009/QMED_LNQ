@@ -7,6 +7,7 @@ import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import Screen from '../../../shared/components/Screen';
 import {useLanguage} from '../../../core/i18n/LanguageContext';
+import {measurementService} from '../../../core/api/measurementService';
 import {localHistory} from '../../../core/storage/localHistory';
 import {healthProfileStorage, HealthProfile} from '../../../core/storage/healthProfile';
 import {useTheme} from '../../../core/theme/ThemeContext';
@@ -40,6 +41,11 @@ const SettingsScreen = ({navigation}: any) => {
         style: 'destructive',
         onPress: async () => {
           await localHistory.clear();
+          try {
+            await measurementService.clearRemoteHistory();
+          } catch {
+            // Keep settings usable even when the backend is not running.
+          }
           await loadLocalData();
         },
       },
