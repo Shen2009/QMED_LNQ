@@ -1,0 +1,21 @@
+node_modules/
+.env
+.DS_Store
+
+# Local runtime/tooling
+.agent/
+.vscode/
+.local-node/
+.home/
+.expo-cache/
+
+# Expo / web build output
+.expo/
+dist/
+web-build/
+
+# Test and debug output
+test-results/
+playwright-report/
+*.log
+*.tsbuildinfo
