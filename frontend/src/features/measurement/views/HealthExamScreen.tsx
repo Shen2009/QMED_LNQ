@@ -258,6 +258,7 @@ const HealthExamScreen = () => {
               const video = await cameraRef.current.recordAsync({ maxDuration: 32 });
               isRecordingRef.current = false;
               if (video?.uri) {
+                setPhase('uploading');
                 // Gọi song song BPM (rPPG) + Stress — endpoint riêng
                 const [rppgResult, stressResult] = await Promise.allSettled([
                   measurementService.analyzeVideo(video.uri),
@@ -281,6 +282,8 @@ const HealthExamScreen = () => {
               }
             } catch (e) {
                isRecordingRef.current = false;
+               setResults(prev => ({...prev, face: {step: 'face', label: 'Khuôn mặt (rPPG + Stress)', error: true}}));
+               setDoneSteps(prev => [...prev, stepIdx]);
                setPhase('step_done');
             }
           }
@@ -294,6 +297,7 @@ const HealthExamScreen = () => {
               const video = await cameraRef.current.recordAsync({ maxDuration: 32 });
               isRecordingRef.current = false;
               if (video?.uri) {
+                setPhase('uploading');
                 try {
                   const data = await measurementService.analyzeBloodPressureVideo(video.uri);
                   setResults(prev => ({...prev, voice: {
@@ -348,11 +352,11 @@ const HealthExamScreen = () => {
     intervalRef.current = setInterval(() => {
       remaining -= 1;
       setCountdown(remaining);
-      if (remaining <= 0) {
+          if (remaining <= 0) {
         clearCountdownInterval();
         
         if (STEPS[stepIdx].id === 'face' || STEPS[stepIdx].id === 'voice') {
-          setPhase('uploading');
+          // Keep the camera mounted until stopRecording resolves with a URI.
           cameraRef.current?.stopRecording();
         } else if (STEPS[stepIdx].id === 'scg') {
           setPhase('uploading');

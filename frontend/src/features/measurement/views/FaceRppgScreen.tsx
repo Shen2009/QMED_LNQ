@@ -376,7 +376,9 @@ const FaceRppgScreen = () => {
       <View style={{flex: 1, backgroundColor: '#000'}}>
         <StatusBar barStyle="light-content" />
         {/* SINGLE persistent CameraView — no remount = no black screen on Android */}
-        {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={StyleSheet.absoluteFill} /> : <NativeCameraPreview ref={cameraRef} style={StyleSheet.absoluteFill} />}
+        <View style={StyleSheet.absoluteFill}>
+          {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={{flex: 1}} /> : <NativeCameraPreview ref={cameraRef} style={{flex: 1}} />}
+        </View>
 
         {/* Dim overlay */}
         <View style={[StyleSheet.absoluteFill, {backgroundColor: 'rgba(0,0,0,0.45)'}]} />

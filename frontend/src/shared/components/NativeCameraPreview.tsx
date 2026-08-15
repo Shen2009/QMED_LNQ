@@ -12,10 +12,11 @@ interface Props {
   style?: StyleProp<ViewStyle>;
   facing?: 'front' | 'back';
   mode?: 'picture' | 'video';
+  active?: boolean;
 }
 
 const NativeCameraPreview = forwardRef<NativeCameraHandle, Props>(function NativeCameraPreview(
-  {style, facing = 'front', mode = 'video'},
+  {style, facing = 'front', mode = 'video', active = true},
   ref,
 ) {
   const cameraRef = useRef<any>(null);
@@ -54,6 +55,7 @@ const NativeCameraPreview = forwardRef<NativeCameraHandle, Props>(function Nativ
         style={StyleSheet.absoluteFill}
         facing={facing}
         mode={mode}
+        active={active}
         onCameraReady={() => {
           readyRef.current = true;
           readyResolveRef.current?.();
@@ -75,7 +77,7 @@ const NativeCameraPreview = forwardRef<NativeCameraHandle, Props>(function Nativ
 });
 
 const styles = StyleSheet.create({
-  root: {flex: 1, overflow: 'hidden'},
+  root: {flex: 1, width: '100%', height: '100%', overflow: 'hidden'},
   error: {...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: '#111'},
   errorText: {color: '#fff', textAlign: 'center'},
 });

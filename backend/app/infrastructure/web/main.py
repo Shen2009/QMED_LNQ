@@ -83,12 +83,18 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    async def load_llm_in_background():
+        try:
+            await asyncio.to_thread(llm_service.load_model)
+        except Exception as exc:
+            logger.error("MedGemma background load failed: %s", exc)
+
     # Startup: Load the LLM model if HF_TOKEN is configured
     hf_token = os.getenv("HF_TOKEN")
     if hf_token:
         logger.info("HF_TOKEN found, initiating MedGemma load in background...")
         # Lên lịch load model trong background để không block việc khởi động server
-        asyncio.create_task(asyncio.to_thread(llm_service.load_model))
+        asyncio.create_task(load_llm_in_background())
     else:
         logger.warning("HF_TOKEN not found! MedGemma model will fail to load or download when chatting.")
 

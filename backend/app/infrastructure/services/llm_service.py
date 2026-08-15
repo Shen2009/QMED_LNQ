@@ -3,6 +3,8 @@ import time
 import threading
 import asyncio
 import logging
+import shutil
+from pathlib import Path
 
 import torch
 from transformers import AutoTokenizer, AutoModelForImageTextToText, BitsAndBytesConfig
@@ -26,6 +28,16 @@ class MedGemmaService:
         self.tokenizer = None
         self.model = None
         self._load_lock = threading.Lock()
+        self._loading = False
+        self._load_error = None
+
+    @property
+    def is_loading(self):
+        return self._loading
+
+    @property
+    def load_error(self):
+        return self._load_error
 
     def load_model(self):
         # Fast path — already loaded (no lock needed for read)
@@ -36,8 +48,21 @@ class MedGemmaService:
         with self._load_lock:
             if self.model is not None:
                 return
+            if self._loading:
+                raise RuntimeError("MedGemma is still loading. Please try again shortly.")
+            if self._load_error:
+                raise RuntimeError(f"MedGemma is unavailable: {self._load_error}")
+            self._loading = True
 
-            try:
+        try:
+                cache_root = Path(os.getenv("HF_HOME", Path.home() / ".cache" / "huggingface"))
+                free_bytes = shutil.disk_usage(cache_root).free
+                required_bytes = 10 * 1024 * 1024 * 1024
+                if free_bytes < required_bytes:
+                    raise RuntimeError(
+                        "Not enough disk space for MedGemma. "
+                        f"Need about 10 GB free, found {free_bytes / (1024 ** 3):.1f} GB."
+                    )
                 # Requires HuggingFace token — MedGemma is a gated model.
                 # Accept terms on HuggingFace and set HF_TOKEN env var before running.
                 hf_token = os.getenv("HF_TOKEN")
@@ -82,12 +107,19 @@ class MedGemmaService:
                         token=hf_token
                     )
                 logger.info("%s loaded successfully!", self.model_id)
-            except Exception as e:
-                logger.error("Error loading model: %s", e)
-                raise RuntimeError(f"Failed to load LLM model: {e}") from e
+        except Exception as e:
+            self._load_error = str(e)
+            logger.error("Error loading model: %s", e)
+            raise RuntimeError(f"Failed to load LLM model: {e}") from e
+        finally:
+            self._loading = False
 
     def _generate_sync(self, messages, max_new_tokens=512, temperature=0.7):
         if self.model is None:
+            if self._loading:
+                raise RuntimeError("MedGemma is still loading. Please try again shortly.")
+            if self._load_error:
+                raise RuntimeError(f"MedGemma is unavailable: {self._load_error}")
             logger.warning("Model is not loaded. Loading now (blocking)...")
             self.load_model()
 

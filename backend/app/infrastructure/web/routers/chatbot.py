@@ -204,6 +204,15 @@ async def chat_message(request: Request, body: ChatRequest):
         raise
     except Exception as e:
         logger.error("Chatbot error: %s", e)
+        if llm_service.model is None:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "AI model is still starting. Please try again in a moment."
+                    if llm_service.is_loading
+                    else "AI model is unavailable. Check backend logs and available disk space."
+                ),
+            )
         raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
 
 
@@ -212,8 +221,10 @@ def chatbot_health():
     model = llm_service.model
     is_loaded = model is not None
     device = str(getattr(model, "device", "unknown")) if is_loaded else "unknown"
+    status = "ready" if is_loaded else "loading" if llm_service.is_loading else "unavailable"
     return {
-        "status": "ready" if is_loaded else "loading_or_uninitialized",
+        "status": status,
         "model": llm_service.model_id,
         "device": device,
+        "error": llm_service.load_error,
     }

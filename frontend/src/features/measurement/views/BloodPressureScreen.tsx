@@ -322,7 +322,9 @@ const BloodPressureScreen = () => {
     return (
       <View style={{flex: 1, backgroundColor: '#000'}}>
         <StatusBar barStyle="light-content" />
-        {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={StyleSheet.absoluteFill} /> : <NativeCameraPreview ref={cameraRef} style={StyleSheet.absoluteFill} />}
+        <View style={StyleSheet.absoluteFill}>
+          {Platform.OS === 'web' ? <WebCameraRecorder ref={cameraRef} style={{flex: 1}} /> : <NativeCameraPreview ref={cameraRef} style={{flex: 1}} />}
+        </View>
         <View style={[StyleSheet.absoluteFill, {backgroundColor: 'rgba(0,0,0,0.42)'}]} />
 
         <SafeAreaView style={[StyleSheet.absoluteFill, {alignItems: 'center'}]}>

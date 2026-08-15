@@ -65,7 +65,6 @@ const createFileForm = async (field: string, media: MediaAsset) => {
 
 const upload = async <T>(path: string, field: string, media: MediaAsset) => {
   const response = await apiClient.post<T>(path, await createFileForm(field, media), {
-    headers: Platform.OS === 'web' ? undefined : {'Content-Type': 'multipart/form-data'},
     timeout: 300000,
   });
   return response.data;
