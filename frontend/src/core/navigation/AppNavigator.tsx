@@ -20,7 +20,9 @@ import LanguageSelectScreen from '../../features/onboarding/views/LanguageSelect
 import OnboardingScreen from '../../features/onboarding/views/OnboardingScreen';
 import HomeScreen from '../../features/home/views/HomeScreen';
 import HistoryScreen from '../../features/history/views/HistoryScreen';
-import MeasureScreen from '../../features/measure/views/MeasureScreen';
+import MeasurementListScreen from '../../features/measurement/views/MeasurementListScreen';
+import FaceRppgScreen from '../../features/measurement/views/FaceRppgScreen';
+import MeasurementResultScreen from '../../features/measurement/views/MeasurementResultScreen';
 import QBotScreen from '../../features/qbot/views/QBotScreen';
 import SettingsScreen from '../../features/settings/views/SettingsScreen';
 
@@ -28,6 +30,8 @@ export type RootStackParamList = {
   LanguageSelect: undefined;
   Onboarding: undefined;
   Main: undefined;
+  FaceRppg: undefined;
+  MeasurementResult: {result?: any};
 };
 
 export type MainTabParamList = {
@@ -152,7 +156,7 @@ function MainTabs() {
       screenOptions={{headerShown: false}}>
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="History" component={HistoryScreen} />
-      <Tab.Screen name="Measure" component={MeasureScreen} />
+      <Tab.Screen name="Measure" component={MeasurementListScreen} />
       <Tab.Screen name="QBot" component={QBotScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
@@ -175,7 +179,14 @@ export default function AppNavigator() {
         ) : !onboardingDone ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
-          <Stack.Screen name="Main" component={MainTabs} />
+          <>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="FaceRppg" component={FaceRppgScreen} />
+            <Stack.Screen
+              name="MeasurementResult"
+              component={MeasurementResultScreen}
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
