@@ -6,6 +6,10 @@ import {MaterialIcons} from '@expo/vector-icons';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import Screen from '../../../shared/components/Screen';
+import {
+  measurementService,
+  MeasurementResultPayload,
+} from '../../../core/api/measurementService';
 import {useTheme} from '../../../core/theme/ThemeContext';
 
 type MeasurePhase = 'idle' | 'measuring' | 'analyzing';
@@ -39,21 +43,43 @@ const FaceRppgScreen = ({navigation}: any) => {
     }
   };
 
+  const fallbackResult = (): MeasurementResultPayload => ({
+    type: 'Face rPPG',
+    status: 'Bình thường',
+    measuredAt: new Date().toISOString(),
+    duration: MEASURE_SECONDS,
+    primaryLabel: 'Heart Rate',
+    primaryValue: 76,
+    primaryUnit: 'BPM',
+    note: 'Kết quả demo từ luồng camera Face rPPG frontend.',
+    metrics: [
+      {label: 'Heart Rate', value: 76, unit: 'BPM', icon: 'favorite'},
+      {label: 'HRV', value: 48, unit: 'ms', icon: 'monitor-heart'},
+      {label: 'Signal Quality', value: 92, unit: '%', icon: 'verified'},
+    ],
+  });
+
   const finishMeasurement = () => {
     stopTimer();
     setPhase('analyzing');
 
-    setTimeout(() => {
-      navigation.replace('MeasurementResult', {
-        result: {
-          type: 'Face rPPG',
-          heartRate: 76,
-          hrv: 48,
-          signalQuality: 92,
+    setTimeout(async () => {
+      const startedAt = new Date(Date.now() - MEASURE_SECONDS * 1000).toISOString();
+      let result = fallbackResult();
+
+      try {
+        result = await measurementService.analyze({
+          type: 'face_rppg',
           duration: MEASURE_SECONDS,
-          measuredAt: new Date().toISOString(),
-          status: 'Bình thường',
-        },
+          startedAt,
+          sessionId: `face-${Date.now()}`,
+        });
+      } catch {
+        result = fallbackResult();
+      }
+
+      navigation.replace('MeasurementResult', {
+        result,
       });
     }, 1200);
   };

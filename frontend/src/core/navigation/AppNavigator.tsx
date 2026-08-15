@@ -22,6 +22,9 @@ import HomeScreen from '../../features/home/views/HomeScreen';
 import HistoryScreen from '../../features/history/views/HistoryScreen';
 import MeasurementListScreen from '../../features/measurement/views/MeasurementListScreen';
 import FaceRppgScreen from '../../features/measurement/views/FaceRppgScreen';
+import StressScreen from '../../features/measurement/views/StressScreen';
+import BloodPressureScreen from '../../features/measurement/views/BloodPressureScreen';
+import HeartbeatScreen from '../../features/measurement/views/HeartbeatScreen';
 import MeasurementResultScreen from '../../features/measurement/views/MeasurementResultScreen';
 import QBotScreen from '../../features/qbot/views/QBotScreen';
 import SettingsScreen from '../../features/settings/views/SettingsScreen';
@@ -31,6 +34,9 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
   FaceRppg: undefined;
+  Stress: undefined;
+  BloodPressure: undefined;
+  Heartbeat: undefined;
   MeasurementResult: {result?: any};
 };
 
@@ -182,6 +188,9 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="Main" component={MainTabs} />
             <Stack.Screen name="FaceRppg" component={FaceRppgScreen} />
+            <Stack.Screen name="Stress" component={StressScreen} />
+            <Stack.Screen name="BloodPressure" component={BloodPressureScreen} />
+            <Stack.Screen name="Heartbeat" component={HeartbeatScreen} />
             <Stack.Screen
               name="MeasurementResult"
               component={MeasurementResultScreen}

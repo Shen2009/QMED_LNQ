@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   SafeAreaView,
+  ScrollViewProps,
   ScrollView,
   StyleProp,
   StyleSheet,
@@ -16,6 +17,7 @@ interface ScreenProps {
   padded?: boolean;
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
+  refreshControl?: ScrollViewProps['refreshControl'];
 }
 
 const Screen: React.FC<ScreenProps> = ({
@@ -24,6 +26,7 @@ const Screen: React.FC<ScreenProps> = ({
   padded = true,
   style,
   contentStyle,
+  refreshControl,
 }) => {
   const {theme} = useTheme();
   const content = [padded ? styles.padded : null, contentStyle];
@@ -33,6 +36,7 @@ const Screen: React.FC<ScreenProps> = ({
       {scroll ? (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
           contentContainerStyle={content}>
           {children}
         </ScrollView>
