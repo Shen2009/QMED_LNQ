@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {MaterialIcons} from '@expo/vector-icons';
@@ -53,6 +54,8 @@ const HealthProfileScreen = ({
   const [saving, setSaving] = useState(false);
   const [completingSetup, setCompletingSetup] = useState(false);
   const pulse = useRef(new Animated.Value(1)).current;
+  const {width} = useWindowDimensions();
+  const isWide = width >= 820;
 
   useEffect(() => {
     healthProfileStorage.get().then(setProfile);
@@ -95,6 +98,11 @@ const HealthProfileScreen = ({
     if (bmi < 25) return 'Cần theo dõi';
     return 'Cao';
   }, [bmi]);
+
+  const profileComplete = useMemo(
+    () => Boolean(profile && isHealthProfileComplete(profile)),
+    [profile],
+  );
 
   const updateProfile = <Key extends keyof HealthProfile>(
     key: Key,
@@ -176,8 +184,12 @@ const HealthProfileScreen = ({
   }
 
   return (
-    <Screen scroll contentStyle={styles.content}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <Screen
+      scroll
+      contentStyle={[styles.content, isWide && styles.desktopContent]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={isWide && styles.desktopKeyboard}>
         <View style={styles.header}>
           {!requiredSetup ? (
             <TouchableOpacity
@@ -202,6 +214,8 @@ const HealthProfileScreen = ({
           </View>
         </View>
 
+        <View style={[styles.profileLayout, isWide && styles.profileLayoutWide]}>
+          <View style={[styles.leftColumn, isWide && styles.leftColumnWide]}>
         <Card style={styles.summaryCard}>
           <View style={[styles.summaryIcon, {backgroundColor: theme.colors.primary + '14'}]}>
             <MaterialIcons name="badge" size={28} color={theme.colors.primary} />
@@ -216,6 +230,21 @@ const HealthProfileScreen = ({
           </View>
         </Card>
 
+        <Card style={styles.insightCard}>
+          <View style={[styles.insightIcon, {backgroundColor: theme.colors.success + '14'}]}>
+            <MaterialIcons name="verified" size={24} color={theme.colors.success} />
+          </View>
+          <Text style={[styles.insightTitle, {color: theme.colors.text}]}>
+            Vì sao cần thông tin này?
+          </Text>
+          <Text style={[styles.insightText, {color: theme.colors.textSecondary}]}>
+            Hồ sơ giúp Q-Med hiển thị BMI, cá nhân hoá nội dung demo và chuẩn bị
+            cho các phân tích sức khỏe chính xác hơn khi có model thật.
+          </Text>
+        </Card>
+          </View>
+
+          <View style={[styles.formColumn, isWide && styles.formColumnWide]}>
         <Card style={styles.section}>
           <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
             Thông tin cơ bản
@@ -354,11 +383,17 @@ const HealthProfileScreen = ({
 
         <View style={styles.actions}>
           <Button
-            title={requiredSetup ? 'Lưu và vào app' : 'Lưu hồ sơ'}
-            icon="save"
+            title={requiredSetup ? 'Hoàn thiện' : 'Lưu hồ sơ'}
+            icon={requiredSetup ? 'check-circle' : 'save'}
             loading={saving}
+            disabled={requiredSetup && !profileComplete}
             onPress={saveProfile}
           />
+          {requiredSetup && !profileComplete ? (
+            <Text style={[styles.completeHint, {color: theme.colors.textMuted}]}>
+              Nhập đủ họ tên, tuổi, chiều cao và cân nặng để hoàn thiện.
+            </Text>
+          ) : null}
           {!requiredSetup ? (
             <Button
               title="Xoá hồ sơ local"
@@ -368,6 +403,8 @@ const HealthProfileScreen = ({
             />
           ) : null}
         </View>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -375,6 +412,16 @@ const HealthProfileScreen = ({
 
 const styles = StyleSheet.create({
   content: {gap: 16, paddingBottom: 100},
+  desktopContent: {
+    width: '100%',
+    maxWidth: 1120,
+    alignSelf: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 26,
+  },
+  desktopKeyboard: {
+    width: '100%',
+  },
   loadingContent: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   loadingText: {fontSize: 14, fontWeight: '700'},
   setupLoadingContent: {
@@ -411,7 +458,29 @@ const styles = StyleSheet.create({
   eyebrow: {fontSize: 13, fontWeight: '800'},
   title: {fontSize: 30, fontWeight: '900', marginTop: 3},
   requiredHint: {fontSize: 13, lineHeight: 19, marginTop: 6},
+  profileLayout: {gap: 16},
+  profileLayoutWide: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 18,
+  },
+  leftColumn: {gap: 16},
+  leftColumnWide: {
+    width: 340,
+  },
+  formColumn: {gap: 0},
+  formColumnWide: {flex: 1, minWidth: 0},
   summaryCard: {flexDirection: 'row', alignItems: 'center', gap: 13, marginBottom: 16},
+  insightCard: {gap: 8, marginBottom: 16},
+  insightIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  insightTitle: {fontSize: 16, fontWeight: '900'},
+  insightText: {fontSize: 13, lineHeight: 20},
   summaryIcon: {
     width: 56,
     height: 56,
@@ -452,6 +521,7 @@ const styles = StyleSheet.create({
   activityText: {fontSize: 12, marginTop: 3},
   multilineInput: {minHeight: 76, textAlignVertical: 'top'},
   actions: {gap: 10},
+  completeHint: {fontSize: 12, lineHeight: 17, textAlign: 'center'},
 });
 
 export default HealthProfileScreen;
