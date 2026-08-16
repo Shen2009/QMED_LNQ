@@ -30,8 +30,10 @@ const getBaseURL = () => {
   return 'http://localhost:6789/api';
 };
 
+export const API_BASE_URL = getBaseURL();
+
 const apiClient = axios.create({
-  baseURL: getBaseURL(),
+  baseURL: API_BASE_URL,
   timeout: 120000,
 });
 
@@ -41,8 +43,10 @@ apiClient.interceptors.response.use(
     const detail = error?.response?.data?.detail;
     if (detail) {
       error.message = typeof detail === 'string' ? detail : JSON.stringify(detail);
+    } else if (error?.code === 'ECONNABORTED' || /timeout/i.test(error?.message || '')) {
+      error.message = 'Backend dang xu ly qua lau. Vui long doi cac tac vu AI khac ket thuc roi thu lai.';
     } else if (!error?.response) {
-      error.message = 'Khong ket noi duoc backend. Hay khoi dong Q-Med API tai cong 6789.';
+      error.message = 'Khong ket noi duoc backend tai cong 6789. Kiem tra dien thoai va may tinh dang cung mang Wi-Fi.';
     }
     return Promise.reject(error);
   },

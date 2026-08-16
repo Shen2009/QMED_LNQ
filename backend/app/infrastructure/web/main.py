@@ -91,12 +91,16 @@ async def lifespan(app: FastAPI):
 
     # Startup: Load the LLM model if HF_TOKEN is configured
     hf_token = os.getenv("HF_TOKEN")
-    if hf_token:
+    if hf_token and llm_service.local_snapshot_complete():
         logger.info("HF_TOKEN found, initiating MedGemma load in background...")
         # Lên lịch load model trong background để không block việc khởi động server
         asyncio.create_task(load_llm_in_background())
-    else:
+    elif not hf_token:
         logger.warning("HF_TOKEN not found! MedGemma model will fail to load or download when chatting.")
+    else:
+        logger.warning(
+            "Local MedGemma snapshot is incomplete; model loading is deferred until the download finishes."
+        )
 
     yield
 
@@ -153,6 +157,11 @@ async def access_log_middleware(request: Request, call_next) -> Response:
     start_time = time.monotonic()
     req_id     = str(uuid.uuid4())[:8]
     client_ip  = request.client.host if request.client else "-"
+
+    logger.info(
+        "ACCESS START %s %s [%s] ip=%s",
+        request.method, request.url.path, req_id, client_ip,
+    )
 
     try:
         response: Response = await call_next(request)

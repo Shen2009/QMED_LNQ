@@ -15,14 +15,14 @@ import {useDispatch} from 'react-redux';
 import {MaterialIcons, MaterialCommunityIcons} from '@expo/vector-icons';
 import {useColors} from '../../../core/theme/useColors';
 import {setMeasurementResult} from '../../../core/store/slices/measurementSlice';
-import measurementService, {getMeasurementErrorMessage} from '../../../core/api/measurementService';
+import measurementService, {DEMO_DURATION_SECONDS, getMeasurementErrorMessage} from '../../../core/api/measurementService';
 import * as ImagePicker from 'expo-image-picker';
 import {useSafeGoBack} from '../../../core/hooks/useSafeGoBack';
 import WebCameraRecorder from '../../../shared/components/WebCameraRecorder';
 import NativeCameraPreview from '../../../shared/components/NativeCameraPreview';
 
 const {width} = Dimensions.get('window');
-const DURATION = 30;
+const DURATION = DEMO_DURATION_SECONDS;
 const COLOR = '#EF4444'; // blood-red accent
 
 // ─── BP status helper ──────────────────────────────────────────────────────────

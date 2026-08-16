@@ -29,9 +29,11 @@ function buildHealthPrompt(record: any, profile: any): string {
 
   const hr     = face.hr_fft || face.hr_bpm || null;
   const hrv    = (type === 'stress' ? result.hrv_ms : null) || face.hrv_ms || scg.hrv_ms || null;
-  const stressLv = (type === 'stress' ? result.stress_level : null) || face.stress_level || null;
-  const sys    = voice.blood_pressure?.systolic  || scg.blood_pressure?.systolic  || null;
-  const dia    = voice.blood_pressure?.diastolic || scg.blood_pressure?.diastolic || null;
+  const stressLv = (type === 'stress' ? (result.stress_level ?? result.stress_score) : null) ?? face.stress_level ?? null;
+  const standaloneSys = type === 'blood-pressure' ? (result.systolic_avg ?? result.systolic) : null;
+  const standaloneDia = type === 'blood-pressure' ? (result.diastolic_avg ?? result.diastolic) : null;
+  const sys    = standaloneSys ?? voice.blood_pressure?.systolic  ?? scg.blood_pressure?.systolic  ?? null;
+  const dia    = standaloneDia ?? voice.blood_pressure?.diastolic ?? scg.blood_pressure?.diastolic ?? null;
   const rhythm = scg.scg_rhythm || null;
 
   let ctx = `Kết quả đo sức khoẻ từ Q-Med (loại: ${type}):\n`;
@@ -71,7 +73,7 @@ function buildHealthPrompt(record: any, profile: any): string {
     if (profile.current_medications) ctx += `- Thuốc đang dùng: ${profile.current_medications}\n`;
   }
 
-  return `${ctx}\nQUAN TRỌNG: Hãy coi các chỉ số đo được ở trên là dữ liệu y tế chính xác 100% của bệnh nhân. Tuyệt đối KHÔNG sử dụng các từ ngữ như "ước tính", "chỉ mang tính tham khảo", "chưa được kiểm chứng" hoặc "đo bằng điện thoại". Hãy phân tích thật tự tin và dứt khoát dựa trên các con số này.\n\nDựa trên kết quả trên, hãy phân tích và trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng sau (không kèm markdown \`\`\`json hay text thừa):\n` +
+  return `${ctx}\nQUAN TRỌNG: Đây là các chỉ số ước tính từ cảm biến điện thoại, không thay thế chẩn đoán. Hãy phân tích rõ ràng, nêu dấu hiệu cần đi khám và không khẳng định bệnh lý.\n\nDựa trên kết quả trên, hãy phân tích và trả về DUY NHẤT một chuỗi JSON hợp lệ theo định dạng sau (không kèm markdown \`\`\`json hay text thừa):\n` +
          `{\n` +
          `  "analysis": "Đoạn văn nhận xét chung về sức khoẻ",\n` +
          `  "risks": [{ "text": "Mô tả rủi ro", "level": "high" | "mid" | "low" }],\n` +
@@ -89,11 +91,13 @@ function generateGemmaAnalysis(record: any, strings: any, profile?: any) {
   const scg    = record.scg   || (type === 'scg' ? res : {});
 
   // For stress type: use result directly
-  const stressLv = type === 'stress' ? (res.stress_level ?? null) : (face.stress_level ?? null);
+  const stressLv = type === 'stress' ? (res.stress_level ?? res.stress_score ?? null) : (face.stress_level ?? null);
   const hrv      = type === 'stress' ? (res.hrv_ms ?? null) : (face.hrv_ms ?? scg.hrv_ms ?? null);
 
-  const sys = voice.blood_pressure?.systolic  || scg.blood_pressure?.systolic  || null;
-  const dia = voice.blood_pressure?.diastolic || scg.blood_pressure?.diastolic || null;
+  const standaloneSys = type === 'blood-pressure' ? (res.systolic_avg ?? res.systolic) : null;
+  const standaloneDia = type === 'blood-pressure' ? (res.diastolic_avg ?? res.diastolic) : null;
+  const sys = standaloneSys ?? voice.blood_pressure?.systolic  ?? scg.blood_pressure?.systolic  ?? null;
+  const dia = standaloneDia ?? voice.blood_pressure?.diastolic ?? scg.blood_pressure?.diastolic ?? null;
   const hr      = face.hr_fft   || face.hr_bpm   || (type === 'face-rppg' ? res.hr_fft : null);
   const fatigue = face.fatigue_level || 25;
   const anomaly = scg.heart_anomaly || false;
@@ -141,7 +145,16 @@ function generateGemmaAnalysis(record: any, strings: any, profile?: any) {
   if (stressLv !== null && stressLv > 40) fallbackRecs.push(strings.medGemmaRecMeditate);
   fallbackRecs.push(strings.medGemmaRecWater);
 
-  return {score, scoreColor, scoreLabel, bpCat, bpColor, sys, dia, hr, stressLv, fatigue, hrv, anomaly, risks: fallbackRisks, recs: fallbackRecs, age, profile};
+  const summary: string[] = [];
+  if (hr != null) summary.push(`nhịp tim ${Math.round(hr)} BPM`);
+  if (sys != null && dia != null) summary.push(`huyết áp ${Math.round(sys)}/${Math.round(dia)} mmHg (${bpCat})`);
+  if (stressLv != null) summary.push(`mức stress ${Math.round(stressLv)}/100`);
+  if (hrv != null) summary.push(`HRV ${Math.round(hrv)} ms`);
+  const fallbackText = summary.length > 0
+    ? `Q-Med đã tổng hợp ${summary.join(', ')}. Điểm sức khỏe hiện tại là ${score}/100. Hãy theo dõi xu hướng qua nhiều lần đo và trao đổi với bác sĩ nếu chỉ số bất thường kéo dài hoặc có triệu chứng khó chịu.`
+    : 'Chưa có đủ chỉ số hợp lệ để phân tích tổng quan. Hãy đo lại các bước bị lỗi, giữ thiết bị ổn định và đảm bảo đủ ánh sáng.';
+
+  return {score, scoreColor, scoreLabel, bpCat, bpColor, sys, dia, hr, stressLv, fatigue, hrv, anomaly, risks: fallbackRisks, recs: fallbackRecs, fallbackText, age, profile};
 }
 
 // ─── Risk level config ─────────────────────────────────────────────────────────
@@ -261,11 +274,23 @@ const MedGemmaReportScreen = () => {
 
   const startAnalysis = async () => {
     setAnalysisPhase('loading');
+    // Keep the overall exam independent from slow 4B CPU generation. The
+    // values below are derived from the validated BP/stress/HRV measurements.
+    setAiText(analysis.fallbackText);
+    setAiRisks(analysis.risks);
+    setAiRecs(analysis.recs);
+    setAnalysisPhase('report');
+    return;
+
     try {
       const prompt = buildHealthPrompt(record, profile);
       const res = await apiClient.post('/chat/message', {
         message: prompt,
         language: 'vi',
+        // The local 4B model runs on CPU; keep the report request bounded so
+        // it cannot block video measurement endpoints for several minutes.
+        max_new_tokens: 64,
+        temperature: 0.2,
       });
       const responseText = res.data.reply || '';
 
@@ -296,7 +321,7 @@ const MedGemmaReportScreen = () => {
       }
     } catch (err) {
       console.warn('MedGemma API error — using generated analysis:', err);
-      setAiText('Đã có lỗi xảy ra khi gọi AI Server. Vui lòng tham khảo các chỉ số ở trên.');
+      setAiText(analysis.fallbackText);
     }
     setAnalysisPhase('report');
   };

@@ -16,7 +16,7 @@ import {MaterialIcons, MaterialCommunityIcons} from '@expo/vector-icons';
 import {useColors} from '../../../core/theme/useColors';
 import {useLanguage} from '../../../core/i18n/LanguageContext';
 import historyService from '../../../core/api/historyService';
-import measurementService from '../../../core/api/measurementService';
+import measurementService, {DEMO_DURATION_SECONDS, getMeasurementErrorMessage} from '../../../core/api/measurementService';
 import WebCameraRecorder from '../../../shared/components/WebCameraRecorder';
 import NativeCameraPreview from '../../../shared/components/NativeCameraPreview';
 
@@ -31,7 +31,7 @@ function buildSteps(strings: any) {
       label: strings.healthExamStepFaceLabel,
       sub: strings.healthExamStepFaceSub,
       color: '#EF4444',
-      duration: 30,
+      duration: DEMO_DURATION_SECONDS,
       instruction: strings.healthExamStepFaceInstruction,
     },
     {
@@ -40,7 +40,7 @@ function buildSteps(strings: any) {
       label: strings.healthExamStepVoiceLabel,
       sub: strings.healthExamStepVoiceSub,
       color: '#3B82F6',
-      duration: 30,
+      duration: DEMO_DURATION_SECONDS,
       instruction: strings.healthExamStepVoiceInstruction,
       scriptLabel: strings.healthExamStepVoiceScript,
     },
@@ -50,7 +50,7 @@ function buildSteps(strings: any) {
       label: strings.healthExamStepScgLabel,
       sub: strings.healthExamStepScgSub,
       color: '#A855F7',
-      duration: 30,
+      duration: DEMO_DURATION_SECONDS,
       instruction: strings.healthExamStepScgInstruction,
     },
   ];
@@ -269,6 +269,14 @@ const HealthExamScreen = () => {
                 const stress = stressResult.status === 'fulfilled' ? stressResult.value : null;
                 const rppgOk = rppg?.hr_fft != null;
                 const stressOk = stress?.stress_score != null;
+                const errors = [
+                  rppgResult.status === 'rejected'
+                    ? getMeasurementErrorMessage(rppgResult.reason, 'Không phân tích được nhịp tim.')
+                    : null,
+                  stressResult.status === 'rejected'
+                    ? getMeasurementErrorMessage(stressResult.reason, 'Không phân tích được stress.')
+                    : null,
+                ].filter(Boolean);
 
                 setResults(prev => ({...prev, face: {
                   step: 'face',
@@ -277,6 +285,7 @@ const HealthExamScreen = () => {
                   hrv_ms:        stress?.hrv_ms         ?? rppg?.hrv_ms ?? undefined,
                   stress_level:  stress?.stress_score   ?? rppg?.stress_level ?? undefined,
                   error:         !rppgOk && !stressOk,
+                  error_message: errors.join(' '),
                 }}));
                 setDoneSteps(prev => [...prev, stepIdx]);
                 setPhase('step_done');
@@ -285,7 +294,12 @@ const HealthExamScreen = () => {
               }
             } catch (e) {
                isRecordingRef.current = false;
-               setResults(prev => ({...prev, face: {step: 'face', label: 'Khuôn mặt (rPPG + Stress)', error: true}}));
+               setResults(prev => ({...prev, face: {
+                 step: 'face',
+                 label: 'Khuôn mặt (rPPG + Stress)',
+                 error: true,
+                 error_message: getMeasurementErrorMessage(e, 'Không ghi hoặc phân tích được video khuôn mặt.'),
+               }}));
                setDoneSteps(prev => [...prev, stepIdx]);
                setPhase('step_done');
             }
@@ -314,7 +328,12 @@ const HealthExamScreen = () => {
                   }}));
                 } catch (e) {
                   console.warn('Lỗi phân tích huyết áp:', e);
-                  setResults(prev => ({...prev, voice: {step: 'voice', label: 'Huyết áp (Face)', error: true}}));
+                  setResults(prev => ({...prev, voice: {
+                    step: 'voice',
+                    label: 'Huyết áp (Face)',
+                    error: true,
+                    error_message: getMeasurementErrorMessage(e, 'Không phân tích được huyết áp.'),
+                  }}));
                 }
                 setDoneSteps(prev => [...prev, stepIdx]);
                 setPhase('step_done');
@@ -323,7 +342,12 @@ const HealthExamScreen = () => {
               }
             } catch (e) {
                isRecordingRef.current = false;
-               setResults(prev => ({...prev, voice: {step: 'voice', label: 'Huyết áp (Face)', error: true}}));
+               setResults(prev => ({...prev, voice: {
+                 step: 'voice',
+                 label: 'Huyết áp (Face)',
+                 error: true,
+                 error_message: getMeasurementErrorMessage(e, 'Không ghi được video huyết áp.'),
+               }}));
                setDoneSteps(prev => [...prev, stepIdx]);
                setPhase('step_done');
             }
@@ -376,7 +400,12 @@ const HealthExamScreen = () => {
             setPhase('step_done');
           }).catch(e => {
             console.warn('Lỗi phân tích SCG:', e);
-            setResults(prev => ({...prev, scg: {step: 'scg', label: 'Âm thanh tim (Beta)', error: true}}));
+            setResults(prev => ({...prev, scg: {
+              step: 'scg',
+              label: 'Âm thanh tim (Beta)',
+              error: true,
+              error_message: getMeasurementErrorMessage(e, 'Không phân tích được tín hiệu SCG.'),
+            }}));
             setDoneSteps(prev => [...prev, stepIdx]);
             setPhase('step_done');
           });
@@ -407,6 +436,7 @@ const HealthExamScreen = () => {
   const goToReport = async () => {
     // Combine all results + user profile into mock medical record
     const record = {
+      type: 'health-exam',
       face:  results.face  || null,
       voice: results.voice || null,
       scg:   results.scg   || null,
@@ -422,6 +452,8 @@ const HealthExamScreen = () => {
 
     navigation.navigate('MedGemmaReport', {record});
   };
+
+  const currentStepFailed = Boolean(results[step?.id]?.error);
 
   // ── All done ──
   if (phase === 'all_done') {
@@ -456,9 +488,14 @@ const HealthExamScreen = () => {
                     <MaterialCommunityIcons name={st.icon as any} size={20} color={st.color} />
                   </View>
                   <Text style={[s.resultTitle, {color: C.text}]}>{st.label}</Text>
-                  <View style={[s.doneChip, {backgroundColor: '#10B98118', borderColor: '#10B98140'}]}>
-                    <MaterialIcons name="check" size={12} color="#10B981" />
-                    <Text style={{color: '#10B981', fontSize: 11, fontWeight: '700'}}>{strings.healthExamCompleted}</Text>
+                  <View style={[s.doneChip, {
+                    backgroundColor: r?.error ? '#EF444418' : '#10B98118',
+                    borderColor: r?.error ? '#EF444440' : '#10B98140',
+                  }]}>
+                    <MaterialIcons name={r?.error ? 'error-outline' : 'check'} size={12} color={r?.error ? '#EF4444' : '#10B981'} />
+                    <Text style={{color: r?.error ? '#EF4444' : '#10B981', fontSize: 11, fontWeight: '700'}}>
+                      {r?.error ? 'Cần đo lại' : strings.healthExamCompleted}
+                    </Text>
                   </View>
                 </View>
                 {r && (
@@ -482,14 +519,16 @@ const HealthExamScreen = () => {
                         </Text>
                       </View>
                     )}
-                    {r.stress_level && (
+                    {r.stress_level != null && (
                       <View style={[s.chip, {backgroundColor: st.color + '12', borderColor: st.color + '30'}]}>
                         <Text style={{color: st.color, fontSize: 12, fontWeight: '700'}}>🧠 {strings.medGemmaLabelStress} {r.stress_level}%</Text>
                       </View>
                     )}
                     {r.error && (
                       <View style={[s.chip, {backgroundColor: '#EF444418', borderColor: '#EF444440'}]}>
-                        <Text style={{color: '#EF4444', fontSize: 12, fontWeight: '700'}}>❌ Phân tích thất bại</Text>
+                        <Text style={{color: '#EF4444', fontSize: 12, fontWeight: '700'}}>
+                          ❌ {r.error_message || 'Phân tích thất bại'}
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -594,9 +633,14 @@ const HealthExamScreen = () => {
 
         {/* Step done */}
         {phase === 'step_done' && (
-          <View style={[s.doneBanner, {backgroundColor: '#10B98112', borderColor: '#10B98140'}]}>
-            <MaterialIcons name="check-circle" size={28} color="#10B981" />
-            <Text style={{color: '#10B981', fontSize: 16, fontWeight: '900'}}>{strings.healthExamStepDoneTitle(stepIdx + 1)}</Text>
+          <View style={[s.doneBanner, {
+            backgroundColor: currentStepFailed ? '#EF444412' : '#10B98112',
+            borderColor: currentStepFailed ? '#EF444440' : '#10B98140',
+          }]}>
+            <MaterialIcons name={currentStepFailed ? 'error-outline' : 'check-circle'} size={28} color={currentStepFailed ? '#EF4444' : '#10B981'} />
+            <Text style={{color: currentStepFailed ? '#EF4444' : '#10B981', fontSize: 16, fontWeight: '900'}}>
+              {currentStepFailed ? 'Phân tích chưa thành công' : strings.healthExamStepDoneTitle(stepIdx + 1)}
+            </Text>
           </View>
         )}
 
@@ -627,10 +671,12 @@ const HealthExamScreen = () => {
         )}
         {phase === 'step_done' && (
           <TouchableOpacity
-            style={[s.actionBtn, {backgroundColor: stepIdx < STEPS.length - 1 ? STEPS[stepIdx + 1].color : '#10B981'}]}
-            onPress={nextStep}>
+            style={[s.actionBtn, {backgroundColor: currentStepFailed ? step.color : stepIdx < STEPS.length - 1 ? STEPS[stepIdx + 1].color : '#10B981'}]}
+            onPress={currentStepFailed ? () => setPhase('intro') : nextStep}>
             <Text style={s.actionBtnTxt}>
-              {stepIdx < STEPS.length - 1
+              {currentStepFailed
+                ? 'Thử đo lại'
+                : stepIdx < STEPS.length - 1
                 ? strings.healthExamNextLabel(STEPS[stepIdx + 1].label.split(' ')[0])
                 : strings.healthExamViewResults}
             </Text>

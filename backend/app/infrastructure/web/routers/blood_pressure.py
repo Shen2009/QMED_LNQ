@@ -1,4 +1,5 @@
 import os
+import asyncio
 import tempfile
 import logging
 
@@ -37,7 +38,7 @@ async def analyse_blood_pressure(
         tmp.write(content)
 
     try:
-        result = use_case.process_video(tmp_path, device=device)
+        result = await asyncio.to_thread(use_case.process_video, tmp_path, device=device)
         log_bp_analyse(user_id=None, filename=filename, ip=client_ip, success=True)
         logger.info(
             "BP analyse done: file=%s sbp=%s dbp=%s ip=%s",

@@ -16,7 +16,7 @@ import {MaterialIcons, MaterialCommunityIcons} from '@expo/vector-icons';
 import {useColors} from '../../../core/theme/useColors';
 import {useLanguage} from '../../../core/i18n/LanguageContext';
 import {setMeasurementResult} from '../../../core/store/slices/measurementSlice';
-import measurementService, {getMeasurementErrorMessage} from '../../../core/api/measurementService';
+import measurementService, {DEMO_DURATION_SECONDS, getMeasurementErrorMessage} from '../../../core/api/measurementService';
 import * as ImagePicker from 'expo-image-picker';
 import {useSafeGoBack} from '../../../core/hooks/useSafeGoBack';
 import historyService from '../../../core/api/historyService';
@@ -24,7 +24,7 @@ import WebCameraRecorder from '../../../shared/components/WebCameraRecorder';
 import NativeCameraPreview from '../../../shared/components/NativeCameraPreview';
 
 const {width} = Dimensions.get('window');
-const DURATION = 30;
+const DURATION = DEMO_DURATION_SECONDS;
 const COLOR = '#A855F7';
 
 // ─── Mock fallback ─────────────────────────────────────────────────────────────

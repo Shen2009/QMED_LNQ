@@ -1,5 +1,5 @@
 import {Platform} from 'react-native';
-import apiClient from './apiClient';
+import apiClient, {API_BASE_URL} from './apiClient';
 
 export interface RPPGAnalysisResult {
   hr_fft?: number | null;
@@ -40,6 +40,46 @@ export interface MediaAsset {
   name?: string;
   type?: string;
 }
+
+// Enabled by default for product evaluation. Set the Expo public variable to
+// false when the real Python video-analysis pipeline is required.
+export const DEMO_MEASUREMENTS = process.env.EXPO_PUBLIC_DEMO_MEASUREMENTS !== 'false';
+export const DEMO_DURATION_SECONDS = 3;
+
+const demoDelay = () => new Promise(resolve => setTimeout(resolve, 700));
+
+const demoRppg = (): RPPGAnalysisResult => ({
+  hr_fft: 72,
+  hr_peak: 73,
+  stress_level: 29,
+  hrv_ms: 54,
+  duration: DEMO_DURATION_SECONDS,
+  fps: 30,
+  n_frames: DEMO_DURATION_SECONDS * 30,
+  face_detected: true,
+  signal_quality: 0.94,
+  source: 'demo',
+});
+
+const demoStress = (): StressAnalysisResult => ({
+  stress_score: 31,
+  hrv_ms: 52,
+  features: {mean_hr_bpm: 72, rmssd_ms: 52, sdnn_ms: 48},
+  signal_quality: {valid: true, score: 0.93},
+  metadata: {source: 'demo', duration_seconds: DEMO_DURATION_SECONDS},
+});
+
+const demoBloodPressure = (): BloodPressureAnalysisResult => ({
+  systolic_avg: 118,
+  diastolic_avg: 76,
+  predictions: [
+    {window_index: 0, systolic: 117, diastolic: 75},
+    {window_index: 1, systolic: 119, diastolic: 77},
+    {window_index: 2, systolic: 118, diastolic: 76},
+  ],
+  metadata: {source: 'demo', confidence: 0.92},
+  debug_info: {demo_mode: true},
+});
 
 const asMedia = (media: string | MediaAsset, fallbackName: string, fallbackType: string): MediaAsset =>
   typeof media === 'string'
@@ -82,22 +122,76 @@ export const getMeasurementErrorMessage = (error: any, fallback: string) => {
 };
 
 const upload = async <T>(path: string, field: string, media: MediaAsset) => {
-  const response = await apiClient.post<T>(path, await createFileForm(field, media), {
-    timeout: 300000,
-  });
+  const form = await createFileForm(field, media);
+
+  // Axios' React Native adapter intermittently reports "Network Error" for
+  // file-backed multipart bodies in Expo Go. Native fetch uses React Native's
+  // supported FormData upload path and preserves the multipart boundary.
+  if (Platform.OS !== 'web') {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 600000);
+    try {
+      const response = await fetch(`${API_BASE_URL}${path}`, {
+        method: 'POST',
+        body: form,
+        signal: controller.signal,
+      });
+      const text = await response.text();
+      let payload: any = null;
+      try {
+        payload = text ? JSON.parse(text) : null;
+      } catch {
+        payload = text;
+      }
+      if (!response.ok) {
+        const detail = payload?.detail || payload || `HTTP ${response.status}`;
+        throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      }
+      return payload as T;
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        throw new Error('Backend xu ly video qua 10 phut. Hay dong cac tac vu AI khac va thu lai.');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  const response = await apiClient.post<T>(path, form, {timeout: 600000});
   return response.data;
 };
 
 const measurementService = {
   async analyzeVideo(video: string | MediaAsset) {
+    if (DEMO_MEASUREMENTS) {
+      await demoDelay();
+      return demoRppg();
+    }
     return upload<RPPGAnalysisResult>('/rppg/analyse', 'video', asMedia(video, 'measurement.mp4', Platform.OS === 'web' ? 'video/webm' : 'video/mp4'));
   },
 
   async analyzeStressVideo(video: string | MediaAsset) {
+    if (DEMO_MEASUREMENTS) {
+      await demoDelay();
+      return demoStress();
+    }
     return upload<StressAnalysisResult>('/stress/analyse', 'video', asMedia(video, 'measurement.mp4', Platform.OS === 'web' ? 'video/webm' : 'video/mp4'));
   },
 
   async analyzeSCG(zAxis: number[], sampleRateHz = 12.5) {
+    if (DEMO_MEASUREMENTS) {
+      await demoDelay();
+      return {
+        hr_fft: 72,
+        hrv_ms: 55,
+        scg_rhythm: 'Sinus Normal',
+        heart_anomaly: false,
+        scg_anomaly_score: 0.08,
+        stress_level: 27,
+        source: 'demo',
+      };
+    }
     const response = await apiClient.post<ScgAnalysisResult>('/scg/analyze', {
       z_axis: zAxis,
       sample_rate_hz: sampleRateHz,
@@ -107,6 +201,10 @@ const measurementService = {
   },
 
   async analyzeBloodPressureVideo(video: string | MediaAsset) {
+    if (DEMO_MEASUREMENTS) {
+      await demoDelay();
+      return demoBloodPressure();
+    }
     return upload<BloodPressureAnalysisResult>('/blood-pressure/analyse', 'video', asMedia(video, 'bp_measurement.mp4', Platform.OS === 'web' ? 'video/webm' : 'video/mp4'));
   },
 

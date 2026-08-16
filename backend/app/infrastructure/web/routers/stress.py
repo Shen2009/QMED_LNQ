@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 import tempfile
 import torch
@@ -35,11 +36,12 @@ async def analyse_video(
         tmp.write(content)
 
     try:
-        result = use_case.process_stress_from_video(
+        result = await asyncio.to_thread(
+            use_case.process_stress_from_video,
             video_path=tmp_path,
             ip=client_ip,
             device=device,
-            model_key=model_key
+            model_key=model_key,
         )
         
         logger.info(

@@ -136,6 +136,8 @@ class ChatRequest(BaseModel):
     language: Optional[str] = "vi"
     vitals: Optional[Dict[str, Any]] = None
     health_profile: Optional[Dict[str, Any]] = None
+    max_new_tokens: Optional[int] = None
+    temperature: Optional[float] = None
 
 
 class ChatResponse(BaseModel):
@@ -188,10 +190,14 @@ async def chat_message(request: Request, body: ChatRequest):
             client_ip,
         )
 
+        # CPU-only MedGemma is intentionally capped for interactive latency.
+        # The structured report asks for a slightly larger, still bounded cap.
+        max_new_tokens = max(8, min(body.max_new_tokens or 48, 96))
+        temperature = max(0.0, min(body.temperature if body.temperature is not None else 0.65, 1.0))
         reply_text = await llm_service.generate_response(
             messages=messages,
-            max_new_tokens=1024,
-            temperature=0.65,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
         )
         logger.info(
             "Chat request done: anonymous tokens=%d ip=%s",
@@ -221,10 +227,19 @@ def chatbot_health():
     model = llm_service.model
     is_loaded = model is not None
     device = str(getattr(model, "device", "unknown")) if is_loaded else "unknown"
-    status = "ready" if is_loaded else "loading" if llm_service.is_loading else "unavailable"
+    status = (
+        "ready"
+        if is_loaded
+        else "loading"
+        if llm_service.is_loading
+        else "downloading"
+        if not llm_service.local_snapshot_complete()
+        else "unavailable"
+    )
     return {
         "status": status,
         "model": llm_service.model_id,
+        "source": llm_service.model_source,
         "device": device,
         "error": llm_service.load_error,
     }

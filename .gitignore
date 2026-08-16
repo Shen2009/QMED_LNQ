@@ -18,6 +18,7 @@ web-build/
 test-results/
 playwright-report/
 *.log
+/tmp/
 *.tsbuildinfo
 __pycache__/
 *.pyc
@@ -27,3 +28,5 @@ backend/**/*.db
 backend/**/__pycache__/
 backend/.venv/
 backend/ml_models/emb_cache/
+backend/ml_models/medgemma-4b-it/
+backend/.hf_cache/
