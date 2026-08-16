@@ -41,44 +41,76 @@ export interface MediaAsset {
   type?: string;
 }
 
-// Enabled by default for product evaluation. Set the Expo public variable to
-// false when the real Python video-analysis pipeline is required.
-export const DEMO_MEASUREMENTS = process.env.EXPO_PUBLIC_DEMO_MEASUREMENTS !== 'false';
-export const DEMO_DURATION_SECONDS = 3;
+// Locked on for product evaluation: measurement flows must never contact the
+// Python analysis API. Change this literal to false for real model testing.
+export const DEMO_MEASUREMENTS = true;
+export const DEMO_DURATION_SECONDS = 30;
 
 const demoDelay = () => new Promise(resolve => setTimeout(resolve, 700));
 
-const demoRppg = (): RPPGAnalysisResult => ({
-  hr_fft: 72,
-  hr_peak: 73,
-  stress_level: 29,
-  hrv_ms: 54,
+interface DemoProfile {
+  id: 'good' | 'moderate' | 'attention';
+  heartRate: number;
+  stress: number;
+  hrv: number;
+  systolic: number;
+  diastolic: number;
+  signalQuality: number;
+  rhythm: string;
+  anomaly: boolean;
+  anomalyScore: number;
+}
+
+const DEMO_PROFILES: DemoProfile[] = [
+  {id: 'good', heartRate: 68, stress: 22, hrv: 64, systolic: 116, diastolic: 75, signalQuality: 0.96, rhythm: 'Sinus Normal', anomaly: false, anomalyScore: 0.05},
+  {id: 'moderate', heartRate: 75, stress: 44, hrv: 47, systolic: 125, diastolic: 81, signalQuality: 0.93, rhythm: 'Sinus Normal', anomaly: false, anomalyScore: 0.11},
+  {id: 'attention', heartRate: 84, stress: 67, hrv: 29, systolic: 136, diastolic: 88, signalQuality: 0.89, rhythm: 'Possible irregular rhythm', anomaly: true, anomalyScore: 0.68},
+];
+
+let activeDemoProfile = DEMO_PROFILES[0];
+
+const demoProfileForMedia = (media: string | MediaAsset) => {
+  const key = typeof media === 'string' ? media : media.uri;
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+  }
+  activeDemoProfile = DEMO_PROFILES[(hash >>> 0) % DEMO_PROFILES.length];
+  return activeDemoProfile;
+};
+
+const demoRppg = (profile: DemoProfile): RPPGAnalysisResult => ({
+  hr_fft: profile.heartRate,
+  hr_peak: profile.heartRate + 1,
+  stress_level: profile.stress,
+  hrv_ms: profile.hrv,
   duration: DEMO_DURATION_SECONDS,
   fps: 30,
   n_frames: DEMO_DURATION_SECONDS * 30,
   face_detected: true,
-  signal_quality: 0.94,
+  signal_quality: profile.signalQuality,
   source: 'demo',
+  demo_profile: profile.id,
 });
 
-const demoStress = (): StressAnalysisResult => ({
-  stress_score: 31,
-  hrv_ms: 52,
-  features: {mean_hr_bpm: 72, rmssd_ms: 52, sdnn_ms: 48},
-  signal_quality: {valid: true, score: 0.93},
-  metadata: {source: 'demo', duration_seconds: DEMO_DURATION_SECONDS},
+const demoStress = (profile: DemoProfile): StressAnalysisResult => ({
+  stress_score: profile.stress,
+  hrv_ms: profile.hrv,
+  features: {mean_hr_bpm: profile.heartRate, rmssd_ms: profile.hrv, sdnn_ms: Math.max(24, profile.hrv - 5)},
+  signal_quality: {valid: true, score: profile.signalQuality},
+  metadata: {source: 'demo', demo_profile: profile.id, duration_seconds: DEMO_DURATION_SECONDS},
 });
 
-const demoBloodPressure = (): BloodPressureAnalysisResult => ({
-  systolic_avg: 118,
-  diastolic_avg: 76,
+const demoBloodPressure = (profile: DemoProfile): BloodPressureAnalysisResult => ({
+  systolic_avg: profile.systolic,
+  diastolic_avg: profile.diastolic,
   predictions: [
-    {window_index: 0, systolic: 117, diastolic: 75},
-    {window_index: 1, systolic: 119, diastolic: 77},
-    {window_index: 2, systolic: 118, diastolic: 76},
+    {window_index: 0, systolic: profile.systolic - 1, diastolic: profile.diastolic - 1},
+    {window_index: 1, systolic: profile.systolic + 1, diastolic: profile.diastolic + 1},
+    {window_index: 2, systolic: profile.systolic, diastolic: profile.diastolic},
   ],
-  metadata: {source: 'demo', confidence: 0.92},
-  debug_info: {demo_mode: true},
+  metadata: {source: 'demo', demo_profile: profile.id, confidence: profile.signalQuality},
+  debug_info: {demo_mode: true, profile: profile.id},
 });
 
 const asMedia = (media: string | MediaAsset, fallbackName: string, fallbackType: string): MediaAsset =>
@@ -165,16 +197,18 @@ const upload = async <T>(path: string, field: string, media: MediaAsset) => {
 const measurementService = {
   async analyzeVideo(video: string | MediaAsset) {
     if (DEMO_MEASUREMENTS) {
+      const profile = demoProfileForMedia(video);
       await demoDelay();
-      return demoRppg();
+      return demoRppg(profile);
     }
     return upload<RPPGAnalysisResult>('/rppg/analyse', 'video', asMedia(video, 'measurement.mp4', Platform.OS === 'web' ? 'video/webm' : 'video/mp4'));
   },
 
   async analyzeStressVideo(video: string | MediaAsset) {
     if (DEMO_MEASUREMENTS) {
+      const profile = demoProfileForMedia(video);
       await demoDelay();
-      return demoStress();
+      return demoStress(profile);
     }
     return upload<StressAnalysisResult>('/stress/analyse', 'video', asMedia(video, 'measurement.mp4', Platform.OS === 'web' ? 'video/webm' : 'video/mp4'));
   },
@@ -183,13 +217,14 @@ const measurementService = {
     if (DEMO_MEASUREMENTS) {
       await demoDelay();
       return {
-        hr_fft: 72,
-        hrv_ms: 55,
-        scg_rhythm: 'Sinus Normal',
-        heart_anomaly: false,
-        scg_anomaly_score: 0.08,
-        stress_level: 27,
+        hr_fft: activeDemoProfile.heartRate,
+        hrv_ms: activeDemoProfile.hrv,
+        scg_rhythm: activeDemoProfile.rhythm,
+        heart_anomaly: activeDemoProfile.anomaly,
+        scg_anomaly_score: activeDemoProfile.anomalyScore,
+        stress_level: activeDemoProfile.stress,
         source: 'demo',
+        demo_profile: activeDemoProfile.id,
       };
     }
     const response = await apiClient.post<ScgAnalysisResult>('/scg/analyze', {
@@ -202,8 +237,9 @@ const measurementService = {
 
   async analyzeBloodPressureVideo(video: string | MediaAsset) {
     if (DEMO_MEASUREMENTS) {
+      const profile = demoProfileForMedia(video);
       await demoDelay();
-      return demoBloodPressure();
+      return demoBloodPressure(profile);
     }
     return upload<BloodPressureAnalysisResult>('/blood-pressure/analyse', 'video', asMedia(video, 'bp_measurement.mp4', Platform.OS === 'web' ? 'video/webm' : 'video/mp4'));
   },

@@ -44,15 +44,6 @@ function buildSteps(strings: any) {
       instruction: strings.healthExamStepVoiceInstruction,
       scriptLabel: strings.healthExamStepVoiceScript,
     },
-    {
-      id: 'scg',
-      icon: 'stethoscope',
-      label: strings.healthExamStepScgLabel,
-      sub: strings.healthExamStepScgSub,
-      color: '#A855F7',
-      duration: DEMO_DURATION_SECONDS,
-      instruction: strings.healthExamStepScgInstruction,
-    },
   ];
 }
 
